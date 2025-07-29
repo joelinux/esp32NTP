@@ -21,7 +21,7 @@ extern TinyGPSPlus gps;
 extern unsigned long ppsLastSignalmicro;
 extern String wifi_ssid;
 extern String wifi_pass;
-extern String secretKey;
+extern String admin_pw;
 extern int tzoffset;
 extern volatile bool ppsLock;
 extern int act_cnt;

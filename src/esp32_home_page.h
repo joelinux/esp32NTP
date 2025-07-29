@@ -286,7 +286,7 @@ const char *updatehtml = R"(
                     <span class="info-value" id="uptime">2d 14h 32m</span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">CPU Temperature</span>
+                    <span class="info-label">MCU Temperature</span>
                     <span class="info-value" id="cpu-temp">42°C</span>
                 </div>
             </div>
@@ -403,7 +403,7 @@ const char *updatehtml = R"(
 
         // Start auto-refresh
         function startAutoRefresh() {
-            refreshInterval = setInterval(refreshData, 5000); // Refresh every 5 seconds
+            refreshInterval = setInterval(refreshData, 10000); // Refresh every 10 seconds
         }
 
         // Stop auto-refresh
@@ -484,6 +484,9 @@ const char *updatehtml = R"(
                     await fetch('/api/reboot', { method: 'GET' });
                     alert('System is rebooting...');
                     stopAutoRefresh();
+                    setTimeout(() => {
+                        window.location.href = '/'; 
+                    }, 3000);
                 } catch (error) {
                     console.error('Failed to reboot:', error);
                 }
@@ -496,7 +499,11 @@ const char *updatehtml = R"(
                     try {
                         await fetch('/api/reset', { method: 'GET' });
                         alert('Factory reset initiated...');
+                        alert('Remember to connect to NTPS1 wifi and go to http://192.168.5.1');
                         stopAutoRefresh();
+                        setTimeout(() => {
+                            window.location.href = 'http://192.168.5.1/'; 
+                        }, 15000);
                     } catch (error) {
                         console.error('Failed to reset:', error);
                     }
@@ -557,6 +564,9 @@ const char *updatehtml = R"(
                         progressFill.style.width = '100%';
                         alert('Firmware uploaded successfully! Device is rebooting...');
                         stopAutoRefresh();
+                        setTimeout(() => {
+                            window.location.href = '/'; 
+                        }, 3000);
                     } else {
                         throw new Error('Upload failed');
                     }

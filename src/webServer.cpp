@@ -7,7 +7,9 @@
 
 extern String wifi_ssid;
 extern String wifi_pass;
-extern String secretKey;
+extern String admin_id;
+extern String admin_pw;
+extern String hostname;
 extern ESP32Time rtc;
 extern Preferences prefs;
 extern int tzoffset;
@@ -56,16 +58,28 @@ const char *html = R"(
       <div class="form-container">
         <form id="myForm" action="/submit" method="POST">
             <div class="form-group">
-                <label for="input1">SSID WiFi:</label>
-                <input type="text" id="input1" name="input1" required>
+                <label for="fssid">SSID WiFi:</label>
+                <input type="text" id="fssid" name="fssid" required>
             </div>
             <div class="form-group">
-                <label for="value2">Password:</label>
-                <input type="password" id="input2" name="input2" required>
+                <label for="fssid_pw">Wifi Password:</label>
+                <input type="password" id="fssid_pw" name="fssid_pw" required>
             </div>
             <div class="form-group">
-                <label for="input3">Admin Secret:</label>
-                <input type="text" id="input3" name="input3">
+                <label for="adminid">Admin ID:</label>
+                <input type="text" value="admin" id="adminid" name="adminid">
+            </div>
+            <div class="form-group">
+                <label for="adminpw1">Admin Password:</label>
+                <input type="password" id="adminpw1" name="adminpw1">
+            </div>
+            <div class="form-group">
+                <label for="adminpw2">Repeat Admin Password:</label>
+                <input type="password" id="adminpw2" name="adminpw2">
+            </div>
+            <div class="form-group">
+                <label for="fhostname">Hostname, ok to leave blank:</label>
+                <input type="text" id="fhostname" name="fhostname">
             </div>
             <button type="submit">Submit</button>
         </form>
@@ -85,36 +99,66 @@ void startWebServer()
 
   server.on("/submit", HTTP_POST, [](AsyncWebServerRequest *request)
             {
-      String input1 = "";
-      String input2 = "";
-      String input3 = "";
+      String fssid = "";
+      String fssid_pw = "";
+      String fadmin_id = "";
+      String fadmin_pw1 = "";
+      String fadmin_pw2 = "";
+      String fhostname = "";
 
-      Serial.println("Check input 1");
-      if (request->hasParam("input1", true)) {
-        Serial.println("input1 is true");
-        input1 = request->getParam("input1", true)->value();
+      Serial.println("Check ssid");
+      if (request->hasParam("fssid", true)) {
+        Serial.println("fssid is true");
+        fssid = request->getParam("fssid", true)->value();
       }
-      if (request->hasParam("input2", true)) {
-        input2 = request->getParam("input2", true)->value();
+      if (request->hasParam("fssid_pw", true)) {
+        fssid_pw = request->getParam("fssid_pw", true)->value();
       }
-      if (request->hasParam("input3", true)) {
-        input3 = request->getParam("input3", true)->value();
+      if (request->hasParam("adminid", true)) {
+        fadmin_id = request->getParam("adminid", true)->value();
       }
-      wifi_ssid = input1;
-      wifi_pass = input2;
-      secretKey = input3;
+      if (request->hasParam("adminpw1", true)) {
+        fadmin_pw1 = request->getParam("adminpw1", true)->value();
+      }
+      if (request->hasParam("adminpw2", true)) {
+        fadmin_pw2 = request->getParam("adminpw2", true)->value();
+      }
+      wifi_ssid = fssid;
+      wifi_pass = fssid_pw;
+      if ( !fadmin_pw1.isEmpty() && fadmin_pw1 == fadmin_pw2 ) {
+        admin_pw = fadmin_pw1 ;
+      }
+      else
+      { 
+      request->send(200, "text/plain", "Passwords didn't match. Restarting...");
+        Serial.println("Admin passwords don't match");
+        restartServer = true;
+        return;
+      }
+      if (request->hasParam("fhostname", true)) {
+        fhostname = request->getParam("fhostname", true)->value();
+      }
       Serial.print("SSID: ");
-      Serial.println(input1);
+      Serial.println(fssid);
+      /*
       Serial.print("Password: ");
-      Serial.println(input2);
+      Serial.println(fssid_pw);
+      */
       request->send(200, "text/plain", "Data received successfully! Restarting...");
       prefs.putString(WIFISSID, wifi_ssid);
       prefs.putString(WIFIPASS, wifi_pass);
-      prefs.putString(SECRETKEY, secretKey);
+      prefs.putString(ADMINID, fadmin_id);
+      prefs.putString(ADMINPW, fadmin_pw1);
+      if ( ! fhostname.isEmpty() ) {
+        prefs.putString(HOSTNAME,fhostname);
+      }
+
       prefs.putBool(WIFIRESET, false);
       vTaskDelay(2000);
       Serial.println("Restarting..");
-      ESP.restart(); });
+      restartServer = true;
+      // ESP.restart(); 
+    });
 
   // Start up Web Server
   Serial.println("SETUP Web Server Done");
@@ -122,25 +166,25 @@ void startWebServer()
   Serial.println("STARTED Web Server Done");
 }
 
-void startOTAServer()
+void startMgtServer()
 {
   Serial.println("Starting Update Server");
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
             {
-                if(!request->authenticate("admin", secretKey.c_str()))
+                if(!request->authenticate(admin_id.c_str(), admin_pw.c_str()))
                    return request->requestAuthentication();
                 request->send(200, "text/html", updatehtml );
                 Serial.println("Web Client Request Main"); });
   server.on("/api/toggle", HTTP_GET, [](AsyncWebServerRequest *request)
             {
-                if(!request->authenticate("admin", secretKey.c_str()))
+                if(!request->authenticate(admin_id.c_str(), admin_pw.c_str()))
                    return request->requestAuthentication();
                 request->redirect("/");  // Implicitly uses 302 Found
                 Serial.println("Web Client Toggle Display");
                 toggleDisplay(); });
   server.on("/api/reboot", HTTP_GET, [](AsyncWebServerRequest *request)
             {
-    if (!request->authenticate("admin", secretKey.c_str()))
+    if (!request->authenticate(admin_id.c_str(), admin_pw.c_str()))
       return request->requestAuthentication();
     Serial.println("Web Client REBOOT");
                     request->send(200, "text/html", "Restarting server...");
@@ -148,7 +192,7 @@ void startOTAServer()
 
   server.on("/api/reset", HTTP_GET, [](AsyncWebServerRequest *request)
             {
-                if(!request->authenticate("admin", secretKey.c_str()))
+                if(!request->authenticate(admin_id.c_str(), admin_pw.c_str()))
                    return request->requestAuthentication();
                 request->send(200, "text/html", "Restarting server...");
                 Serial.println("Web Client RESET");
@@ -165,7 +209,7 @@ void startOTAServer()
               json += ",\"board\":\"" + String(NTP_BOARD_VERSION) +"\"";
               json += ",\"uptime\":\"" + String(millis() / 1000) +"\"";
               json += ",\"freeHeap\":\"" + String(ESP.getFreeHeap()) +"\"";
-              json += ",\"temperature\":\"" + String(temperatureRead(),1) +"\"";
+              json += ",\"temperature\":\"" + String(temperatureRead(),1) +"°C\"";
 
               json += ",\"ntp\": {";
               json += "\"requestsPerHour\":\"" + String(act_cnt) +"\"";
@@ -193,7 +237,7 @@ void startOTAServer()
               json=String(); });
   server.on("/api/firmware", HTTP_POST, [](AsyncWebServerRequest *request)
             {
-              if (!request->authenticate("admin", secretKey.c_str()))
+              if (!request->authenticate(admin_id.c_str(), admin_pw.c_str()))
               {
                 return request->requestAuthentication();
               }
@@ -203,7 +247,7 @@ void startOTAServer()
             },
             [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final)
             {
-      if (!request->authenticate("admin", secretKey.c_str()))
+      if (!request->authenticate(admin_id.c_str(), admin_pw.c_str()))
       {
         return;
       }

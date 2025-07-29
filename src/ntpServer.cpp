@@ -300,13 +300,13 @@ void computeHmac(const char *message, char *hmacResult)
 {
   mbedtls_md_context_t ctx;
   mbedtls_md_type_t md_type = MBEDTLS_MD_SHA256;
-  const size_t keyLen = secretKey.length();
+  const size_t keyLen = admin_pw.length();
   const size_t msgLen = strlen(message);
   unsigned char hmacOutput[32]; // SHA256 produces 32 bytes
 
   mbedtls_md_init(&ctx);
   mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(md_type), 1);
-  mbedtls_md_hmac_starts(&ctx, (const unsigned char *)secretKey.c_str(), keyLen);
+  mbedtls_md_hmac_starts(&ctx, (const unsigned char *)admin_pw.c_str(), keyLen);
   mbedtls_md_hmac_update(&ctx, (const unsigned char *)message, msgLen);
   mbedtls_md_hmac_finish(&ctx, hmacOutput);
   mbedtls_md_free(&ctx);
@@ -445,7 +445,7 @@ void processNTPRequests()
       }
 
       // Check commands that Need a password
-      if (!secretKey.isEmpty())
+      if (!admin_pw.isEmpty())
       {
 
         if (check_hmac("reboot", packet))

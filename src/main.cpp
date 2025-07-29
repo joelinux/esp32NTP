@@ -114,7 +114,9 @@ static const uint32_t GPSBaud = 9600;
 
 String wifi_ssid = "";
 String wifi_pass = "";
-String secretKey = ""; // Used for Admin commands over port 123
+String admin_id = "admin";
+String admin_pw = "";
+String hostname = "";
 
 TaskHandle_t taskHandle1 = NULL; // task handle for setting/refreshing the display
 
@@ -156,10 +158,17 @@ void ResetSSID()
   if (!did_reset)
   {
     did_reset = true;
+    prefs.clear();
     prefs.putBool(WIFIRESET, true);
+    /*
     prefs.putString(WIFISSID, "");
     prefs.putString(WIFIPASS, "");
     prefs.putString(SECRETKEY, "");
+    prefs.putString(ADMINID, "");
+    prefs.putString(ADMINPW, "");
+    prefs.putString(HOSTNAME, "");
+    */
+    prefs.end();
     Serial.println("Reset");
   }
 }
@@ -176,8 +185,19 @@ void WiFiSetup()
   Reset = prefs.getBool(WIFIRESET, true);
   wifi_ssid = prefs.getString(WIFISSID, ssid);
   wifi_pass = prefs.getString(WIFIPASS, password);
-  secretKey = prefs.getString(SECRETKEY);
+  admin_id = prefs.getString(ADMINID, "admin");
+  admin_pw = prefs.getString(ADMINPW);
+  hostname = prefs.getString(HOSTNAME);
+  String secretKey = prefs.getString(SECRETKEY);
 
+  if (admin_pw.isEmpty() && ! secretKey.isEmpty()) {
+    admin_pw = secretKey;
+  }
+
+  /*
+  Serial.println("Admin is: " + admin_id);
+  Serial.println("Admin pw is: " + admin_pw);
+  */
   if (Reset && (ran_once == true))
   {
     Serial.println("Ran WiFiSetup once. Skipping..");
@@ -213,14 +233,18 @@ void WiFiSetup()
     WiFi.macAddress(mac);
 
     // Extract the last 3 bytes and format as hex
-    char hostname[15]; // 6 chars + null terminator
-    snprintf(hostname, sizeof(hostname), "time-%02X%02X%02X", mac[3], mac[4], mac[5]);
+    char thostname[15]; // 6 chars + null terminator
+    snprintf(thostname, sizeof(thostname), "time-%02X%02X%02X", mac[3], mac[4], mac[5]);
+    if (hostname.isEmpty())
+    {
+      hostname = String(thostname);
+    }
 
     WiFi.disconnect(true, true);
     WiFi.mode(WIFI_OFF);
     vTaskDelay(500);
 
-    WiFi.setHostname(hostname);
+    WiFi.setHostname(hostname.c_str());
     Serial.println("Wifi Hostname is: " + String(hostname));
 
     WiFi.mode(WIFI_STA);
@@ -255,8 +279,7 @@ void WiFiSetup()
     {
       Serial.printf("Failed to disable power-saving mode: %d\n", ret);
     }
-    startOTAServer();
-    // setupOTAServer();
+    startMgtServer();
   }
 }
 

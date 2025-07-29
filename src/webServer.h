@@ -20,9 +20,12 @@
 #define WIFISSID "wifissid"
 #define WIFIPASS "wifipass"
 #define SECRETKEY "secretkey"
+#define ADMINID	 "adminid"
+#define ADMINPW	"adminpw"
+#define HOSTNAME "hostname"
 
 extern void startWebServer();
-extern void startOTAServer();
+extern void startMgtServer();
 extern TinyGPSPlus gps;
 
 #endif
