@@ -42,6 +42,9 @@ TFT_eSPI tft_display = TFT_eSPI();
 TFTDisplay displayImpl(&tft_display);
 #endif
 
+bool restartServer = false;
+bool factoryReset = false;
+
 DisplayManager *display = &displayImpl;
 
 #ifdef SERIAL1
@@ -83,7 +86,6 @@ const bool displayTimeZone = false; // set to true to display the time zone, set
 
 bool timeandDateSet = false;
 
-
 // ****************************************************************************
 // Time zone
 // ****************************************************************************
@@ -102,7 +104,6 @@ TimeChangeRule *tcr;
 #else
 int tzoffset = -1;
 #endif
-
 
 // ****************************************************************************
 // GPS Pins and Speed
@@ -136,9 +137,13 @@ int Reset = 1;
 // WIFI Functions
 // ****************************************************************************
 
+bool displayStatus()
+{
+  return (enable_display);
+}
 void toggleDisplay()
 {
-        enable_display = display->toggle();
+  enable_display = display->toggle();
 }
 
 // ****************************************************************************
@@ -572,7 +577,15 @@ void loop()
 #ifdef P_RESET
   if (digitalRead(P_RESET) == LOW)
   {
+    factoryReset = true;
+    vTaskDelay(2000); // Simple debounce
+  }
+#endif
+
+  if (factoryReset)
+  {
     Serial.println("Reset Pressed!");
+    vTaskDelay(500);
     display->clear();
     display->setTextColor(WHITE);
     display->setTextSize(2);
@@ -581,10 +594,9 @@ void loop()
     display->println("WIFI");
     display->display();
     ResetSSID();
-    vTaskDelay(2000); // Simple debounce
     ESP.restart();
   }
-#endif
+
   while (gpsSerial.available() > 0)
     gps.encode(gpsSerial.read());
 
@@ -610,5 +622,10 @@ void loop()
       lng = gps.location.lng();
       tzoffset = round(lng / 15.0) * 3600;
     }
+  }
+  if (restartServer)
+  {
+    vTaskDelay(500);
+    ESP.restart();
   }
 }

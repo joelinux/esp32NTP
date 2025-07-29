@@ -16,6 +16,8 @@ It can't really be called a Stratum 1 server because the ESP32 connects over wif
 This is convenient, but it lowers the accuracy. But the time results are 
 usually in the low milliseconds. 
 
+## Why do this?
+Good question. I hope to have an answer here shortly.
 
 ## Features
 
@@ -33,12 +35,15 @@ usually in the low milliseconds.
 - Wi-Fi credentials
 - Ability to pick up GPS satellites. Might not work in some buildings.
 
+## Reccommended Hardware
+- [Teyleten Robot ATGM336H GPS+BDS Dual-Mode Module](https://www.amazon.com/dp/B09LQDG1HY)
+- [ELEGOO 3PCS 0.96 Inch OLED](https://www.amazon.com/dp/B0D2RMQQHR)
+- [ESP-WROOM-32 ESP32 ESP-32S Development Board](https://www.amazon.com/dp/B08D5ZD528)
+
 ## Sample Hardware
 Below are some sample hardware that has worked at the time of development. 
 - [Teyleten Robot ATGM336H GPS+BDS Dual-Mode Module](https://www.amazon.com/dp/B09LQDG1HY)
-- [ELEGOO 3PCS 0.96 Inch OLED](https://www.amazon.com/dp/B0D2RMQQHR)
 - [OLED I2C IIC Display Module 12864](https://www.amazon.com/dp/B09C5K91H7)
-- [ESP-WROOM-32 ESP32 ESP-32S Development Board](https://www.amazon.com/dp/B08D5ZD528)
 - [D1 Mini ESP32 ESP-WROOM-32](https://www.amazon.com/dp/B0D8Y6B9C5)
 
 ## Getting Started

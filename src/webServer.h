@@ -7,7 +7,10 @@
 
 #include <Preferences.h>
 #include <ESPAsyncWebServer.h>
-#include <ESPAsyncHTTPUpdateServer.h>
+#include <TinyGPSPlus.h>
+#include <ESP32Time.h>
+#include <TimeLib.h>
+#include "version.h"
 
 // ****************************************************************************
 // WIFI  Variables
@@ -20,5 +23,6 @@
 
 extern void startWebServer();
 extern void startOTAServer();
+extern TinyGPSPlus gps;
 
 #endif

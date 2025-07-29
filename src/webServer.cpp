@@ -1,14 +1,24 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Copyright 2025 Joe Lesko
 
+#include <Update.h>
 #include "webServer.h"
+#include "esp32_home_page.h" // CAUSED THE ESP32 TO CRASH
 
 extern String wifi_ssid;
 extern String wifi_pass;
 extern String secretKey;
+extern ESP32Time rtc;
 extern Preferences prefs;
+extern int tzoffset;
+extern int act_cnt;
+extern bool ppsLock;
+extern bool restartServer;
+extern bool factoryReset;
+
 extern void ResetSSID();
 extern void toggleDisplay();
+extern bool displayStatus();
 
 const char *html = R"(
 <!DOCTYPE HTML>
@@ -64,37 +74,17 @@ const char *html = R"(
 </html>
 )";
 
-const char *updatehtml = R"(
-<!DOCTYPE HTML>
-<html>
-<head>
-<meta charset="UTF-8">
-</head>
-  <body>
-    <h2>NTP Server Running </h2>
-      <li><a href=/toggle>Toggle Display On/Off</a>
-      <li><a href=/update>Update Firmware</a>
-      <li><a href=/reboot>Reboot System</a>
-      <p>
-      <p>
-      <p>
-      <li><a href=/reset>RESET EVERYTHING (Careful)</a>
-  </body>
-</html>
-)";
-
-ESPAsyncHTTPUpdateServer updateServer;
 AsyncWebServer server(80);
 
 void startWebServer()
 {
-    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-              {
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
+            {
       request->send(200, "text/html", html);
       Serial.println("Web Client Request"); });
 
-    server.on("/submit", HTTP_POST, [](AsyncWebServerRequest *request)
-              {
+  server.on("/submit", HTTP_POST, [](AsyncWebServerRequest *request)
+            {
       String input1 = "";
       String input2 = "";
       String input3 = "";
@@ -126,51 +116,129 @@ void startWebServer()
       Serial.println("Restarting..");
       ESP.restart(); });
 
-    // Start up Web Server
-    Serial.println("SETUP Web Server Done");
-    server.begin();
-    Serial.println("STARTED Web Server Done");
+  // Start up Web Server
+  Serial.println("SETUP Web Server Done");
+  server.begin();
+  Serial.println("STARTED Web Server Done");
 }
 
 void startOTAServer()
 {
-    Serial.println("Starting Update Server");
-    updateServer.setup(&server, "admin", secretKey.c_str());
-    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-              {
+  Serial.println("Starting Update Server");
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
+            {
                 if(!request->authenticate("admin", secretKey.c_str()))
                    return request->requestAuthentication();
-                request->send(200, "text/html", updatehtml);
-                Serial.println("Web Client Request"); });
-    server.on("/toggle", HTTP_GET, [](AsyncWebServerRequest *request)
-              {
+                request->send(200, "text/html", updatehtml );
+                Serial.println("Web Client Request Main"); });
+  server.on("/api/toggle", HTTP_GET, [](AsyncWebServerRequest *request)
+            {
                 if(!request->authenticate("admin", secretKey.c_str()))
                    return request->requestAuthentication();
-                request->send(200, "text/html", updatehtml);
+                request->redirect("/");  // Implicitly uses 302 Found
                 Serial.println("Web Client Toggle Display");
-                toggleDisplay();
-              });
-    server.on("/reboot", HTTP_GET, [](AsyncWebServerRequest *request)
-              {
+                toggleDisplay(); });
+  server.on("/api/reboot", HTTP_GET, [](AsyncWebServerRequest *request)
+            {
+    if (!request->authenticate("admin", secretKey.c_str()))
+      return request->requestAuthentication();
+    Serial.println("Web Client REBOOT");
+                    request->send(200, "text/html", "Restarting server...");
+                    restartServer = true; });
+
+  server.on("/api/reset", HTTP_GET, [](AsyncWebServerRequest *request)
+            {
                 if(!request->authenticate("admin", secretKey.c_str()))
                    return request->requestAuthentication();
-                request->send(200, "text/html", updatehtml);
-                Serial.println("Web Client REBOOT");
-                vTaskDelay(1000);
-                ESP.restart(); });
-    server.on("/reset", HTTP_GET, [](AsyncWebServerRequest *request)
-              {
-                if(!request->authenticate("admin", secretKey.c_str()))
-                   return request->requestAuthentication();
-                request->send(200, "text/html", updatehtml);
+                request->send(200, "text/html", "Restarting server...");
                 Serial.println("Web Client RESET");
-                vTaskDelay(1000);
-                ResetSSID();
-                vTaskDelay(2000); // Simple debounce
-                ESP.restart(); });
+               factoryReset = true; });
 
-    server.on("/logout", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(401); });
+  server.on("/api/status", HTTP_GET, [](AsyncWebServerRequest *request)
+            { 
+              String json = "{";
+              struct tm *tt;
+              time_t now_Local_Time;
+              char buf[30];
 
-    server.begin();
+              json += "\"firmware\":\"" + String(ESP32NTP_VER) +"\"";
+              json += ",\"board\":\"" + String(NTP_BOARD_VERSION) +"\"";
+              json += ",\"uptime\":\"" + String(millis() / 1000) +"\"";
+              json += ",\"freeHeap\":\"" + String(ESP.getFreeHeap()) +"\"";
+              json += ",\"temperature\":\"" + String(temperatureRead(),1) +"\"";
+
+              json += ",\"ntp\": {";
+              json += "\"requestsPerHour\":\"" + String(act_cnt) +"\"";
+              json += "}"; // close ntp
+              json += ",\"display\": {";
+              json += "\"main\":" + String( displayStatus() ? "true" : "false");
+              json += "}"; // close display
+
+              json += ",\"gps\": {";
+              json += "\"lockStatus\":\"" + String(ppsLock ? "3D Fix" : "No") +"\"";
+              json += ",\"hasLock\":" + String(ppsLock ? "true" : "false");
+              json += ",\"satellitesInView\":\"" + String(gps.satellites.value()) +"\"";
+              json += ",\"datetime\":\"";
+              now_Local_Time = rtc.getEpoch() + tzoffset;
+              tt = gmtime(&now_Local_Time);
+              sprintf(buf, "%04d-%02d-%02d ", tt->tm_year + 1900, tt->tm_mon + 1, tt->tm_mday);
+              json += buf;
+              sprintf(buf, "%02d:%02d:%02d\"", tt->tm_hour, tt->tm_min, tt->tm_sec);
+              json += buf;
+              json += "}"; // close gps
+
+              json += "}";
+              request->send(200, "application/json", json);
+                Serial.println("Web Client Request status");
+              json=String(); });
+  server.on("/api/firmware", HTTP_POST, [](AsyncWebServerRequest *request)
+            {
+              if (!request->authenticate("admin", secretKey.c_str()))
+              {
+                return request->requestAuthentication();
+              }
+              request->send(200, "text/html", "Fireware updating. Restarting");
+              Serial.println("Web Client Request");
+              // restartTimer.once_ms(1000,[]{ ESP.restart(); });
+            },
+            [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final)
+            {
+      if (!request->authenticate("admin", secretKey.c_str()))
+      {
+        return;
+      }
+      if (!index)
+      {
+        Serial.printf("Update: %s\n", filename.c_str());
+        if (!Update.begin())
+        {
+          Update.printError(Serial);
+        }
+      }
+      if (len)
+      {
+        if (Update.write(data, len) != len)
+        {
+          Update.printError(Serial);
+        }
+      }
+      if (final)
+      {
+        if (Update.end(true))
+        {
+          Serial.printf("Update Success: %u bytes\n", index + len);
+          Serial.println("Reboot Server");
+          restartServer = true;
+        }
+      }
+      /*
+      else
+      {
+        Update.printError(Serial);
+      }
+        */ });
+  server.on("/api/logout", HTTP_GET, [](AsyncWebServerRequest *request)
+            { request->send(401); });
+
+  server.begin();
 }
