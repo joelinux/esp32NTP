@@ -221,6 +221,38 @@ const char *updatehtml = R"(
             border-color: rgba(255, 255, 255, 0.8);
         }
 
+        .form-group {
+            margin: 15px 0;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            opacity: 0.9;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: rgba(255, 255, 255, 0.6);
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .form-input::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
         .progress-bar {
             width: 100%;
             height: 8px;
@@ -310,8 +342,18 @@ const char *updatehtml = R"(
                     </span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">Date Time</span>
+                    <span class="info-label">Date / Time</span>
                     <span class="info-value" id="gps-date">No Data</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">NTP Server Status</span>
+                    <span class="info-value" id="ntp-status">
+                        Running<span class="status-indicator status-online"></span>
+                    </span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Requests/Hour</span>
+                    <span class="info-value" id="ntp-requests">0</span>
                 </div>
             </div>
 
@@ -334,26 +376,6 @@ const char *updatehtml = R"(
                 </div>
             </div>
 
-            <!-- NTP Status -->
-            <div class="card">
-                <h2>
-                    <svg class="card-icon" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22C6.47,22 2,17.5 2,12A10,10 0 0,1 12,2M12.5,7V12.25L17,14.92L16.25,16.15L11,13V7H12.5Z"/>
-                    </svg>
-                    NTP Server Status
-                </h2>
-                <div class="info-item">
-                    <span class="info-label">Server Status</span>
-                    <span class="info-value" id="ntp-status">
-                        Running<span class="status-indicator status-online"></span>
-                    </span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Requests/Hour</span>
-                    <span class="info-value" id="ntp-requests">0</span>
-                </div>
-            </div>
-
             <!-- System Controls -->
             <div class="card">
                 <h2>
@@ -365,6 +387,31 @@ const char *updatehtml = R"(
                 <div class="control-buttons">
                     <button class="btn btn-warning" onclick="rebootSystem() ">🔄 Reboot System</button>
                     <button class="btn btn-danger" onclick="resetSystem() ">⚠️ Factory Reset</button>
+                </div>
+            </div>
+
+            <!-- Admin Configuration -->
+            <div class="card">
+                <h2>
+                    <svg class="card-icon" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M12,7C13.4,7 14.8,8.6 14.8,10V11.4C15.2,11.7 15.5,12.2 15.5,12.8V16.3C15.5,17.2 14.8,17.8 13.9,17.8H10.1C9.2,17.8 8.5,17.1 8.5,16.2V12.8C8.5,12.1 8.8,11.6 9.2,11.3V10C9.2,8.6 10.6,7 12,7M12,8.2C11.2,8.2 10.5,8.7 10.5,9.5V11.3H13.5V9.5C13.5,8.7 12.8,8.2 12,8.2Z"/>
+                    </svg>
+                    Change Admin Data
+                </h2>
+                <div class="form-group">
+                    <label class="form-label" for="admin-id">Admin ID:</label>
+                    <input type="text" id="admin-id" class="form-input" placeholder="Enter admin username" maxlength="32">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="admin-password">Admin Password:</label>
+                    <input type="password" id="admin-password" class="form-input" placeholder="Enter admin password" maxlength="64">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="hostname">Device Hostname:</label>
+                    <input type="text" id="hostname" class="form-input" placeholder="Enter device hostname" maxlength="32">
+                </div>
+                <div class="control-buttons">
+                    <button class="btn btn-success" onclick="updateAdminSettings() ">💾 Update Settings</button>
                 </div>
             </div>
 
@@ -585,6 +632,71 @@ const char *updatehtml = R"(
                 progressBar.style.display = 'none';
                 uploadBtn.disabled = false;
                 uploadBtn.textContent = '📤 Upload Firmware';
+            }
+        }
+
+        // Update admin settings
+        async function updateAdminSettings() {
+            const adminId = document.getElementById('admin-id').value.trim();
+            const adminPassword = document.getElementById('admin-password').value.trim();
+            const hostname = document.getElementById('hostname').value.trim();
+
+            if (!adminId && !adminPassword && !hostname) {
+                alert('Please fill in on field');
+                return;
+            }
+
+            if ( adminId && adminId.length < 3 || adminId.length > 32) {
+                alert('Admin ID must be between 3 and 32 characters');
+                return;
+            }
+
+            if (adminPassword && adminPassword.length < 6 || adminPassword.length > 64) {
+                alert('Admin password must be between 6 and 64 characters');
+                return;
+            }
+
+            if (hostname && hostname.length < 3 || hostname.length > 32) {
+                alert('Hostname must be between 3 and 32 characters');
+                return;
+            }
+
+            if ( hostname && !/^[a-zA-Z0-9-]+$/.test(hostname)) {
+                alert('Hostname can only contain letters, numbers, and hyphens');
+                return;
+            }
+
+            if (!confirm('Are you sure you want to update the admin settings? You may need to re-login.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/admin-config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        adminId: adminId,
+                        adminPassword: adminPassword,
+                        hostname: hostname
+                    })
+                });
+
+                if (response.ok) {
+                    alert('Admin settings updated successfully!');
+                    document.getElementById('admin-id').value = '';
+                    document.getElementById('admin-password').value = '';
+                    document.getElementById('hostname').value = '';
+                    setTimeout(() => {
+                        window.location.href = '/'; 
+                    }, 3000);
+                } else {
+                    throw new Error('Failed to update settings');
+                }
+            } catch (error) {
+                console.error('Failed to update admin settings:', error);
+                alert('Failed to update admin settings. Please try again.');
             }
         }
 

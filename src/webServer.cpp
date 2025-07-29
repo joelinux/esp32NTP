@@ -99,66 +99,74 @@ void startWebServer()
 
   server.on("/submit", HTTP_POST, [](AsyncWebServerRequest *request)
             {
-      String fssid = "";
-      String fssid_pw = "";
-      String fadmin_id = "";
-      String fadmin_pw1 = "";
-      String fadmin_pw2 = "";
-      String fhostname = "";
+              String fssid = "";
+              String fssid_pw = "";
+              String fadmin_id = "";
+              String fadmin_pw1 = "";
+              String fadmin_pw2 = "";
+              String fhostname = "";
 
-      Serial.println("Check ssid");
-      if (request->hasParam("fssid", true)) {
-        Serial.println("fssid is true");
-        fssid = request->getParam("fssid", true)->value();
-      }
-      if (request->hasParam("fssid_pw", true)) {
-        fssid_pw = request->getParam("fssid_pw", true)->value();
-      }
-      if (request->hasParam("adminid", true)) {
-        fadmin_id = request->getParam("adminid", true)->value();
-      }
-      if (request->hasParam("adminpw1", true)) {
-        fadmin_pw1 = request->getParam("adminpw1", true)->value();
-      }
-      if (request->hasParam("adminpw2", true)) {
-        fadmin_pw2 = request->getParam("adminpw2", true)->value();
-      }
-      wifi_ssid = fssid;
-      wifi_pass = fssid_pw;
-      if ( !fadmin_pw1.isEmpty() && fadmin_pw1 == fadmin_pw2 ) {
-        admin_pw = fadmin_pw1 ;
-      }
-      else
-      { 
-      request->send(200, "text/plain", "Passwords didn't match. Restarting...");
-        Serial.println("Admin passwords don't match");
-        restartServer = true;
-        return;
-      }
-      if (request->hasParam("fhostname", true)) {
-        fhostname = request->getParam("fhostname", true)->value();
-      }
-      Serial.print("SSID: ");
-      Serial.println(fssid);
-      /*
-      Serial.print("Password: ");
-      Serial.println(fssid_pw);
-      */
-      request->send(200, "text/plain", "Data received successfully! Restarting...");
-      prefs.putString(WIFISSID, wifi_ssid);
-      prefs.putString(WIFIPASS, wifi_pass);
-      prefs.putString(ADMINID, fadmin_id);
-      prefs.putString(ADMINPW, fadmin_pw1);
-      if ( ! fhostname.isEmpty() ) {
-        prefs.putString(HOSTNAME,fhostname);
-      }
+              Serial.println("Check ssid");
+              if (request->hasParam("fssid", true))
+              {
+                Serial.println("fssid is true");
+                fssid = request->getParam("fssid", true)->value();
+              }
+              if (request->hasParam("fssid_pw", true))
+              {
+                fssid_pw = request->getParam("fssid_pw", true)->value();
+              }
+              if (request->hasParam("adminid", true))
+              {
+                fadmin_id = request->getParam("adminid", true)->value();
+              }
+              if (request->hasParam("adminpw1", true))
+              {
+                fadmin_pw1 = request->getParam("adminpw1", true)->value();
+              }
+              if (request->hasParam("adminpw2", true))
+              {
+                fadmin_pw2 = request->getParam("adminpw2", true)->value();
+              }
+              wifi_ssid = fssid;
+              wifi_pass = fssid_pw;
+              if (!fadmin_pw1.isEmpty() && fadmin_pw1 == fadmin_pw2)
+              {
+                admin_pw = fadmin_pw1;
+              }
+              else
+              {
+                request->send(200, "text/plain", "Passwords didn't match. Restarting...");
+                Serial.println("Admin passwords don't match");
+                restartServer = true;
+                return;
+              }
+              if (request->hasParam("fhostname", true))
+              {
+                fhostname = request->getParam("fhostname", true)->value();
+              }
+              Serial.print("SSID: ");
+              Serial.println(fssid);
+              /*
+              Serial.print("Password: ");
+              Serial.println(fssid_pw);
+              */
+              request->send(200, "text/plain", "Data received successfully! Restarting...");
+              prefs.putString(WIFISSID, wifi_ssid);
+              prefs.putString(WIFIPASS, wifi_pass);
+              prefs.putString(ADMINID, fadmin_id);
+              prefs.putString(ADMINPW, fadmin_pw1);
+              if (!fhostname.isEmpty())
+              {
+                prefs.putString(HOSTNAME, fhostname);
+              }
 
-      prefs.putBool(WIFIRESET, false);
-      vTaskDelay(2000);
-      Serial.println("Restarting..");
-      restartServer = true;
-      // ESP.restart(); 
-    });
+              prefs.putBool(WIFIRESET, false);
+              vTaskDelay(2000);
+              Serial.println("Restarting..");
+              restartServer = true;
+              // ESP.restart();
+            });
 
   // Start up Web Server
   Serial.println("SETUP Web Server Done");
@@ -281,6 +289,61 @@ void startMgtServer()
         Update.printError(Serial);
       }
         */ });
+  server.on("/api/admin-config", HTTP_POST, [](AsyncWebServerRequest *request) {}, NULL, [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total)
+            {
+    if (!request->authenticate(admin_id.c_str(), admin_pw.c_str()))
+    {
+      return request->requestAuthentication();
+    }
+
+    String body = String((char *)data).substring(0, len);
+    Serial.println("Admin config update: " + body);
+
+    // Parse JSON manually (simple approach)
+    int adminIdStart = body.indexOf("\"adminId\":\"") + 11;
+    int adminIdEnd = body.indexOf("\"", adminIdStart);
+    String newAdminId = body.substring(adminIdStart, adminIdEnd);
+
+    int adminPasswordStart = body.indexOf("\"adminPassword\":\"") + 17;
+    int adminPasswordEnd = body.indexOf("\"", adminPasswordStart);
+    String newAdminPassword = body.substring(adminPasswordStart, adminPasswordEnd);
+
+    int hostnameStart = body.indexOf("\"hostname\":\"") + 12;
+    int hostnameEnd = body.indexOf("\"", hostnameStart);
+    String newHostname = body.substring(hostnameStart, hostnameEnd);
+
+    // Validate inputs
+    if (newAdminId.length() >= 3 && newAdminId.length() <= 32)
+    {
+      admin_id = newAdminId;
+      prefs.putString(ADMINID, admin_id);
+      restartServer = true;
+    }
+    if (newAdminPassword.length() >= 6 && newAdminPassword.length() <= 64)
+    {
+      admin_pw = newAdminPassword;
+      prefs.putString(ADMINPW, admin_pw);
+      restartServer = true;
+    }
+    if (newHostname.length() >= 3 && newHostname.length() <= 32)
+    {
+
+      // Update global variables
+      hostname = newHostname;
+
+      // Save to preferences
+      prefs.putString(HOSTNAME, hostname);
+      restartServer = true;
+    }
+
+    if ( restartServer ) {
+      prefs.end();
+      request->send(200, "application/json", "{\"status\":\"success\"}");
+      Serial.println("Admin settings updated successfully");
+    } else {
+      request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid input parameters\"}");
+    } });
+
   server.on("/api/logout", HTTP_GET, [](AsyncWebServerRequest *request)
             { request->send(401); });
 
