@@ -213,7 +213,8 @@ void startMgtServer()
               time_t now_Local_Time;
               char buf[30];
 
-              json += "\"firmware\":\"" + String(ESP32NTP_VER) +"\"";
+              json += "\"hostname\":\"" + hostname +"\"";
+              json += ",\"firmware\":\"" + String(ESP32NTP_VER) +"\"";
               json += ",\"board\":\"" + String(NTP_BOARD_VERSION) +"\"";
               json += ",\"uptime\":\"" + String(millis() / 1000) +"\"";
               json += ",\"freeHeap\":\"" + String(ESP.getFreeHeap()) +"\"";

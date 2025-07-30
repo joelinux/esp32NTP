@@ -384,6 +384,10 @@ const char *updatehtml = R"(
                     </svg>
                     System Controls
                 </h2>
+                <div class="info-item">
+                    <span class="info-label">Hostname</span>
+                    <span class="info-value" id="hostname-id">none</span>
+                </div>
                 <div class="control-buttons">
                     <button class="btn btn-warning" onclick="rebootSystem() ">🔄 Reboot System</button>
                     <button class="btn btn-danger" onclick="resetSystem() ">⚠️ Factory Reset</button>
@@ -478,6 +482,7 @@ const char *updatehtml = R"(
             // System information
             document.getElementById('firmware-version').textContent = data.firmware || 'v0';
             document.getElementById('firmware-board').textContent = data.board || 'none';
+            document.getElementById('hostname-id').textContent = data.hostname || 'none';
             document.getElementById('free-heap').textContent = data.freeHeap || '0 KB';
             document.getElementById('uptime').textContent = data.uptime || '0s';
             document.getElementById('cpu-temp').textContent = data.temperature || '0°C';

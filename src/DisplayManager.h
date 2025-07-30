@@ -66,10 +66,10 @@ public:
     }
     void begin() override
     {
-            disp->clearDisplay();
-            disp->setTextColor(WHITE);
-            disp->setTextSize(1);
-            disp->setCursor(0, 0);
+        disp->clearDisplay();
+        disp->setTextColor(WHITE);
+        disp->setTextSize(1);
+        disp->setCursor(0, 0);
     }
     void clear() override { disp->clearDisplay(); }
     void setTextSize(uint8_t size) override { disp->setTextSize(size); }
@@ -79,7 +79,7 @@ public:
     void println(const String &text) override { disp->println(text); }
     void display() override
     {
-            disp->display();
+        disp->display();
     }
     bool toggle() override
     {
@@ -93,7 +93,7 @@ public:
             toggleDisplay = true;
             disp->ssd1306_command(SSD1306_DISPLAYON);
         }
-        return(toggleDisplay);
+        return (toggleDisplay);
     }
 };
 #endif
@@ -126,12 +126,19 @@ public:
 
 class ST7789Display : public DisplayManager
 {
+private:
+    bool toggleDisplay = true;
+
+public:
     Adafruit_ST7789 *disp;
 
 public:
     ST7789Display(Adafruit_ST7789 *d) : disp(d) {}
     void init() override
     {
+        // pinMode(TFT_BL, OUTPUT);
+        pinMode(LCD_BL, OUTPUT);
+        digitalWrite(LCD_BL, HIGH);
         disp->init(170, 320);
         disp->fillScreen(ST77XX_BLACK);
     }
@@ -154,8 +161,31 @@ public:
     void setTextColor(uint16_t color) override { disp->setTextColor(color, ST77XX_BLACK); }
     void print(const String &text) override { disp->print(text); }
     void println(const String &text) override { disp->println(text); }
-    void display() override {} // Not needed for ST7789
-    bool toggle() override { return(true); }  // Not needed for ST7789
+    void display() override {}                // Not needed for ST7789
+    // bool toggle() override { return (true); } // Not needed for ST7789
+    bool toggle() override
+    {
+        if (toggleDisplay)
+        {
+            toggleDisplay = false;
+            //disp->writeCommand(ST77XX_DISPOFF); // Send Display OFF command (0x28)
+            // Optionally, enter sleep mode for lower power
+            //vTaskDelay(200);
+            //disp->writeCommand(ST77XX_SLPIN); // Send Sleep In command (0x10)
+            digitalWrite(LCD_BL, LOW);
+        }
+        else
+        {
+            toggleDisplay = true;
+            //disp->writeCommand(ST77XX_SLPOUT); // Exit Sleep Mode (0x11)
+            vTaskDelay(200);
+            //disp->writeCommand(ST77XX_DISPON); // Display ON (0x29)
+            //disp->fillScreen(ST77XX_BLACK);
+            //disp->init(170, 320);
+            digitalWrite(LCD_BL, HIGH);
+        }
+        return (toggleDisplay);
+    }
 };
 #endif
 
@@ -203,6 +233,10 @@ public:
 
 class TFTDisplay : public DisplayManager
 {
+private:
+    bool toggleDisplay = true;
+
+public:
     TFT_eSPI *disp;
     bool SwitchOn = false;
 
@@ -210,6 +244,7 @@ public:
     TFTDisplay(TFT_eSPI *d) : disp(d) {}
     void init() override
     {
+        pinMode(TFT_BL, OUTPUT);
         disp->init();
         disp->setSwapBytes(true);
     }
@@ -228,7 +263,20 @@ public:
     void print(const String &text) override { disp->print(text); }
     void println(const String &text) override { disp->println(text); }
     void display() override {} // Not needed for TFT_eSPI
-    bool toggle() override { return(true); } 
+    bool toggle() override
+    {
+        if (toggleDisplay)
+        {
+            toggleDisplay = false;
+            digitalWrite(TFT_BL, LOW);
+        }
+        else
+        {
+            toggleDisplay = true;
+            digitalWrite(TFT_BL, HIGH);
+        }
+        return (toggleDisplay);
+    }
 
     void drawFrame()
     {
