@@ -174,13 +174,15 @@ void startWebServer()
   Serial.println("STARTED Web Server Done");
 }
 
+const char *auth_realm = "Restricted Area";
 void startMgtServer()
 {
+
   Serial.println("Starting Update Server");
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
             {
                 if(!request->authenticate(admin_id.c_str(), admin_pw.c_str()))
-                   return request->requestAuthentication();
+                   return request->requestAuthentication(auth_realm);
                 request->send(200, "text/html", updatehtml );
                 Serial.println("Web Client Request Main"); });
   server.on("/api/toggle", HTTP_GET, [](AsyncWebServerRequest *request)
@@ -193,7 +195,7 @@ void startMgtServer()
   server.on("/api/reboot", HTTP_GET, [](AsyncWebServerRequest *request)
             {
     if (!request->authenticate(admin_id.c_str(), admin_pw.c_str()))
-      return request->requestAuthentication();
+      return request->requestAuthentication(auth_realm);
     Serial.println("Web Client REBOOT");
                     request->send(200, "text/html", "Restarting server...");
                     restartServer = true; });
@@ -201,7 +203,7 @@ void startMgtServer()
   server.on("/api/reset", HTTP_GET, [](AsyncWebServerRequest *request)
             {
                 if(!request->authenticate(admin_id.c_str(), admin_pw.c_str()))
-                   return request->requestAuthentication();
+                   return request->requestAuthentication(auth_realm);
                 request->send(200, "text/html", "Restarting server...");
                 Serial.println("Web Client RESET");
                factoryReset = true; });
@@ -248,7 +250,7 @@ void startMgtServer()
             {
               if (!request->authenticate(admin_id.c_str(), admin_pw.c_str()))
               {
-                return request->requestAuthentication();
+                return request->requestAuthentication(auth_realm);
               }
               request->send(200, "text/html", "Fireware updating. Restarting");
               Serial.println("Web Client Request");
@@ -294,7 +296,7 @@ void startMgtServer()
             {
     if (!request->authenticate(admin_id.c_str(), admin_pw.c_str()))
     {
-      return request->requestAuthentication();
+      return request->requestAuthentication(auth_realm);
     }
 
     String body = String((char *)data).substring(0, len);
@@ -346,7 +348,15 @@ void startMgtServer()
     } });
 
   server.on("/api/logout", HTTP_GET, [](AsyncWebServerRequest *request)
-            { request->send(401); });
+            {  
+              // Send a 401 Unauthorized response to clear credentials
+              AsyncWebServerResponse *response = request->beginResponse(401, "text/plain", "Logged out. Please re-authenticate.");
+              // Add the WWW-Authenticate header to force re-authentication
+              response->addHeader("WWW-Authenticate", "digest realm=\"Restricted Area\", qop=\"auth\"");
+
+              request->send(response);
+              // request->send(401, "text/plain", "Logged out. Please re-authenticate.");
+             });
 
   server.begin();
 }
