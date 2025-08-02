@@ -450,9 +450,9 @@ void updateTheDisplay(void *parameter)
           }
           else
           {
-            display->print("NO ");
+            display->print("NO  ");
           }
-          sprintf(tmps, "  act: %-4d\n", act_cnt);
+          sprintf(tmps, "act: %-6d\n", act_cnt);
           display->print(tmps);
           sats = gps.satellites.value();
           if (sats != last_sat)
