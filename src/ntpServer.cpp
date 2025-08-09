@@ -6,9 +6,8 @@
 extern void toggleDisplay();
 extern ESP32Time rtc;
 extern int act_total;
-extern  bool ppsFlag;
+extern bool ppsFlag;
 extern bool timeandDateSet;
-
 
 TaskHandle_t taskHandle0 = NULL; // task handle for setting/refreshing the time
 
@@ -16,8 +15,8 @@ TinyGPSPlus gps;
 
 bool timeisPPS = false;
 
-bool debugIsOn = false; // set to true to see progress results in the serial monitor, set to false to suppress these
-SemaphoreHandle_t mutex;         // used to ensure an NTP request results are not impacted by the process that refreshes the time
+bool debugIsOn = false;  // set to true to see progress results in the serial monitor, set to false to suppress these
+SemaphoreHandle_t mutex; // used to ensure an NTP request results are not impacted by the process that refreshes the time
 
 // ****************************************************************************
 // NTP port and packet buffer
@@ -32,7 +31,6 @@ void startNTPServer()
 {
   Udp.begin(NTP_PORT);
 }
-
 
 // ****************************************************************************
 //
@@ -61,6 +59,10 @@ void setDateAndTimeFromGPS(void *parameter)
 
     // Serial.println("Got PPS Flag. Set Time");
 
+    if (gps.satellites.value() < 3)
+    {
+      timeisPPS = false;
+    }
     if (gps.date.isValid() && gps.time.isValid()) // make sure the date and time are valid (in that values are populated)
     {
 
@@ -439,8 +441,8 @@ void processNTPRequests()
       }
       if (packet.startsWith("display"))
       {
-	toggleDisplay();
-        sprintf(buffer,"Display toggled %s", enable_display ? "On " : "off");
+        toggleDisplay();
+        sprintf(buffer, "Display toggled %s", enable_display ? "On " : "off");
         sendUDPResponse(buffer);
       }
 
@@ -472,4 +474,3 @@ void processNTPRequests()
     }
   }
 }
-
