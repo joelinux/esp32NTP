@@ -26,6 +26,7 @@ extern int tzoffset;
 extern volatile bool ppsLock;
 extern int act_cnt;
 extern bool enable_display;
+extern int stratum;
 
 
 #endif

@@ -4,6 +4,7 @@
 #include <Update.h>
 #include "webServer.h"
 #include "esp32_home_page.h" // CAUSED THE ESP32 TO CRASH
+#include "tools.h"
 
 extern String wifi_ssid;
 extern String wifi_pass;
@@ -17,10 +18,13 @@ extern int act_cnt;
 extern bool ppsLock;
 extern bool restartServer;
 extern bool factoryReset;
+extern int stratum;
 
 extern void ResetSSID();
 extern void toggleDisplay();
 extern bool displayStatus();
+extern void toggleBootDisplay();
+extern bool displayBootStatus();
 
 const char *html = R"(
 <!DOCTYPE HTML>
@@ -192,6 +196,15 @@ void startMgtServer()
                 request->redirect("/");  // Implicitly uses 302 Found
                 Serial.println("Web Client Toggle Display");
                 toggleDisplay(); });
+  server.on("/api/toggleBoot", HTTP_GET, [](AsyncWebServerRequest *request)
+            {
+                if(!request->authenticate(admin_id.c_str(), admin_pw.c_str()))
+                   return request->requestAuthentication();
+                request->redirect("/");  // Implicitly uses 302 Found
+                Serial.println("Web Client Toggle Boot Display");
+                //toggleDisplay();
+                toggleBootDisplay();
+               });
   server.on("/api/reboot", HTTP_GET, [](AsyncWebServerRequest *request)
             {
     if (!request->authenticate(admin_id.c_str(), admin_pw.c_str()))
@@ -213,12 +226,12 @@ void startMgtServer()
               String json = "{";
               struct tm *tt;
               time_t now_Local_Time;
-              char buf[30];
+              char buf[100];
 
               json += "\"hostname\":\"" + hostname +"\"";
               json += ",\"firmware\":\"" + String(ESP32NTP_VER) +"\"";
               json += ",\"board\":\"" + String(NTP_BOARD_VERSION) +"\"";
-              json += ",\"uptime\":\"" + String(millis() / 1000) +"\"";
+              json += ",\"uptime\":\"" + String(secTostr((long)(millis() / 1000), buf)) +"\"";
               json += ",\"freeHeap\":\"" + String(ESP.getFreeHeap()) +"\"";
               json += ",\"temperature\":\"" + String(temperatureRead(),1) +"°C\"";
 
@@ -227,12 +240,14 @@ void startMgtServer()
               json += "}"; // close ntp
               json += ",\"display\": {";
               json += "\"main\":" + String( displayStatus() ? "true" : "false");
+              json += ",\"boot\":" + String( displayBootStatus() ? "true" : "false");
               json += "}"; // close display
 
               json += ",\"gps\": {";
               json += "\"lockStatus\":\"" + String(ppsLock ? "3D Fix" : "No") +"\"";
               json += ",\"hasLock\":" + String(ppsLock ? "true" : "false");
               json += ",\"satellitesInView\":\"" + String(gps.satellites.value()) +"\"";
+              json += ",\"stratum\":\"" + String(stratum) +"\"";
               json += ",\"datetime\":\"";
               now_Local_Time = rtc.getEpoch() + tzoffset;
               tt = gmtime(&now_Local_Time);
@@ -330,7 +345,6 @@ void startMgtServer()
     }
     if (newHostname.length() >= 3 && newHostname.length() <= 32)
     {
-
       // Update global variables
       hostname = newHostname;
 

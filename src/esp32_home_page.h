@@ -332,6 +332,10 @@ const char *updatehtml = R"(
                     GPS Status
                 </h2>
                 <div class="info-item">
+                    <span class="info-label">Stratum</span>
+                    <span class="info-value" id="stratum">10</span>
+                </div>
+                <div class="info-item">
                     <span class="info-label">Satellites in View</span>
                     <span class="info-value" id="satellites-view">0</span>
                 </div>
@@ -371,8 +375,17 @@ const char *updatehtml = R"(
                         ON<span class="status-indicator status-online"></span>
                     </span>
                 </div>
+                <div class="info-item">
+                    <span class="info-label">Main Display on Boot</span>
+                    <span class="info-value" id="main-display-boot-status">
+                        ON<span class="status-indicator status-online"></span>
+                    </span>
+                </div>
                 <div class="toggle-container">
                     <button class="btn btn-success" onclick="toggleDisplay() ">Toggle Display</button>
+                </div>
+                <div class="toggle-container">
+                    <button class="btn btn-success" onclick="toggleBootDisplay() ">Toggle Boot Display</button>
                 </div>
             </div>
 
@@ -488,6 +501,7 @@ const char *updatehtml = R"(
             document.getElementById('cpu-temp').textContent = data.temperature || '0°C';
 
             // GPS information
+            document.getElementById('stratum').textContent = data.gps?.stratum || '10';
             document.getElementById('satellites-view').textContent = data.gps?.satellitesInView || '0';
             document.getElementById('gps-date').textContent = data.gps?.datetime || 'NO JSON';
 
@@ -499,6 +513,7 @@ const char *updatehtml = R"(
 
             // Display status
             updateDisplayStatus('main-display-status', data.display?.main);
+            updateDisplayStatus('main-display-boot-status', data.display?.boot);
 
             // NTP status
             document.getElementById('ntp-requests').textContent = data.ntp?.requestsPerHour || '0';
@@ -521,6 +536,18 @@ const char *updatehtml = R"(
         async function toggleDisplay() {
             try {
 		const response = await fetch('/api/toggle', { method: 'GET' });
+                if (response.ok) {
+                    refreshData(); // Refresh to get updated status
+                }
+            } catch (error) {
+                console.error('Failed to toggle:', error);
+            }
+        }
+
+        // Toggle boot display functions
+        async function toggleBootDisplay() {
+            try {
+		const response = await fetch('/api/toggleBoot', { method: 'GET' });
                 if (response.ok) {
                     refreshData(); // Refresh to get updated status
                 }

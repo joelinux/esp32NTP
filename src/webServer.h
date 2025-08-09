@@ -23,6 +23,7 @@
 #define ADMINID	 "adminid"
 #define ADMINPW	"adminpw"
 #define HOSTNAME "hostname"
+#define DISPLAYON "displayon"
 
 extern void startWebServer();
 extern void startMgtServer();

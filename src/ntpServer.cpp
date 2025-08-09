@@ -2,12 +2,16 @@
 // Copyright 2025 Joe Lesko
 
 #include "ntpServer.h"
+#include "tools.h"
 
 extern void toggleDisplay();
 extern ESP32Time rtc;
 extern int act_total;
 extern bool ppsFlag;
 extern bool timeandDateSet;
+
+
+int stratum = 10;
 
 TaskHandle_t taskHandle0 = NULL; // task handle for setting/refreshing the time
 
@@ -88,6 +92,7 @@ void setDateAndTimeFromGPS(void *parameter)
 
           // set the real time clock
           rtc.setTime(wt.tm_sec, wt.tm_min, wt.tm_hour, wt.tm_mday, wt.tm_mon, wt.tm_year);
+	  stratum = 2;
           timeandDateSet = true;
           timeisPPS = true;
 
@@ -416,6 +421,7 @@ void processNTPRequests()
 
         sprintf(buffer, "\r\nVersion: %s\r\nFirmware: %s\r\n"
                         "%02d:%02d:%02d\r\n%04d-%02d-%02d\r\nLOCK: %s\r\n"
+                        "Stratum: %d\r\n"
                         "SATS: %d\r\nWIFI: %s\r\nIP: %s\r\nActivity: %d\r\nWifi RSSI: %d dBm\r\n"
                         "Free Heap Memory: %d\r\n"
                         "ESP32 Chip Model: %s\r\n"
@@ -425,6 +431,7 @@ void processNTPRequests()
                 tt->tm_hour, tt->tm_min, tt->tm_sec,
                 tt->tm_year + 1900, tt->tm_mon + 1, tt->tm_mday,
                 ppsLock == true ? "YES" : "NO",
+                stratum,
                 gps.satellites.value(),
                 WiFi.SSID(),
                 WiFi.localIP().toString().c_str(),

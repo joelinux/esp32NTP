@@ -72,6 +72,7 @@ unsigned long ppsLastSignalmicro = esp_timer_get_time();
 ESP32Time rtc(0);
 
 bool enable_display = true;
+bool enable_boot_display;
 
 // ****************************************************************************
 // GPS Variables
@@ -143,9 +144,28 @@ bool displayStatus()
 {
   return (enable_display);
 }
+
 void toggleDisplay()
 {
   enable_display = display->toggle();
+}
+
+bool displayBootStatus()
+{
+  return (enable_boot_display);
+}
+
+void toggleBootDisplay()
+{
+  if (enable_boot_display)
+  {
+    enable_boot_display = false;
+  }
+  else
+  {
+    enable_boot_display = true;
+  }
+  prefs.putBool(DISPLAYON, enable_boot_display);
 }
 
 // ****************************************************************************
@@ -190,7 +210,8 @@ void WiFiSetup()
   hostname = prefs.getString(HOSTNAME);
   String secretKey = prefs.getString(SECRETKEY);
 
-  if (admin_pw.isEmpty() && ! secretKey.isEmpty()) {
+  if (admin_pw.isEmpty() && !secretKey.isEmpty())
+  {
     admin_pw = secretKey;
   }
 
@@ -292,6 +313,7 @@ void ppsHandlerRising()
   // raise the flag that signals the start of the next second
   ppsFlag = true;
   ppsLock = true;
+  stratum = 2;
 
   ppsLastSignalmicro = esp_timer_get_time();
   // Serial.println("PPS PULSE RISING");
@@ -315,8 +337,22 @@ void updateTheDisplay(void *parameter)
   int sats;
 
   display->init();
+
+  if (!enable_boot_display)
+  {
+    toggleDisplay();
+  }
+
   while (true)
   {
+    if (gps.satellites.value() < 4)
+    {
+      ppsLock = false;
+      stratum = 10;
+    }
+    else if ( ppsLock) {
+      stratum = 2;
+    } 
     if (gps.time.isUpdated())
     {
       if ((first_set == 0) && gps.date.isValid() && gps.time.isValid()) // make sure the date and time are valid (in that values are populated)
@@ -537,6 +573,8 @@ void setup()
   // Create a config namespace to store variables for reboot
   prefs.begin("config", false);
 
+  enable_boot_display = prefs.getBool(DISPLAYON, true);
+
   Serial.begin(115200);
 
   // Decide on serial type for a board
@@ -588,6 +626,7 @@ void setup()
   {
     startDisplayTask();
   }
+
   checkOTAPartitionSpace();
 }
 
