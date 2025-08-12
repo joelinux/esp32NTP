@@ -9,6 +9,7 @@ extern ESP32Time rtc;
 extern int act_total;
 extern bool ppsFlag;
 extern bool timeandDateSet;
+extern long running_act_cnt;
 
 
 int stratum = 10;
@@ -422,7 +423,9 @@ void processNTPRequests()
         sprintf(buffer, "\r\nVersion: %s\r\nFirmware: %s\r\n"
                         "%02d:%02d:%02d\r\n%04d-%02d-%02d\r\nLOCK: %s\r\n"
                         "Stratum: %d\r\n"
-                        "SATS: %d\r\nWIFI: %s\r\nIP: %s\r\nActivity: %d\r\nWifi RSSI: %d dBm\r\n"
+                        "SATS: %d\r\nWIFI: %s\r\nIP: %s\r\n"
+			"Activity: %d\r\nTotal Activity: %ld\r\n"
+			"Wifi RSSI: %d dBm\r\n"
                         "Free Heap Memory: %d\r\n"
                         "ESP32 Chip Model: %s\r\n"
                         "ESP32 Flash Chip Size: %d\r\n",
@@ -436,6 +439,7 @@ void processNTPRequests()
                 WiFi.SSID(),
                 WiFi.localIP().toString().c_str(),
                 act_cnt,
+                running_act_cnt,
                 WiFi.RSSI(),
                 ESP.getFreeHeap(),
                 ESP.getChipModel(),

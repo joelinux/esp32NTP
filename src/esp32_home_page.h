@@ -264,7 +264,7 @@ const char *updatehtml = R"(
 
         .progress-fill {
             height: 100%;
-            background: linear-gradient(90deg, #4CAF50, #45a049);
+            background: linear-gradient(90deg, #00FF00, #FF0000);
             width: 0%;
             transition: width 0.3s ease;
         }
@@ -314,6 +314,10 @@ const char *updatehtml = R"(
                     <span class="info-value" id="free-heap">245.2 KB</span>
                 </div>
                 <div class="info-item">
+                    <span class="info-label">Date / Time</span>
+                    <span class="info-value" id="gps-date">No Data</span>
+                </div>
+                <div class="info-item">
                     <span class="info-label">System Uptime</span>
                     <span class="info-value" id="uptime">2d 14h 32m</span>
                 </div>
@@ -346,10 +350,6 @@ const char *updatehtml = R"(
                     </span>
                 </div>
                 <div class="info-item">
-                    <span class="info-label">Date / Time</span>
-                    <span class="info-value" id="gps-date">No Data</span>
-                </div>
-                <div class="info-item">
                     <span class="info-label">NTP Server Status</span>
                     <span class="info-value" id="ntp-status">
                         Running<span class="status-indicator status-online"></span>
@@ -358,6 +358,10 @@ const char *updatehtml = R"(
                 <div class="info-item">
                     <span class="info-label">Requests/Hour</span>
                     <span class="info-value" id="ntp-requests">0</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Running Requests</span>
+                    <span class="info-value" id="ntp-running-requests">0</span>
                 </div>
             </div>
 
@@ -517,6 +521,7 @@ const char *updatehtml = R"(
 
             // NTP status
             document.getElementById('ntp-requests').textContent = data.ntp?.requestsPerHour || '0';
+            document.getElementById('ntp-running-requests').textContent = data.ntp?.totalrequests || '0';
 
             const ntpStatusElement = document.getElementById('ntp-status');
             const ntpRunning = data.ntp?.running !== false;

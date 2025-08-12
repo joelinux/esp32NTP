@@ -82,6 +82,7 @@ volatile bool ppsFlag = false; // GPS one-pulse-per-second flag
 volatile bool ppsLock = false; // Used to display if we got a PPS lock
 int act_total = 0;
 int act_cnt = 0;
+long running_act_cnt = 0;
 
 const bool displayTimeZone = false; // set to true to display the time zone, set to false to not display the time zone
 
@@ -382,6 +383,7 @@ void updateTheDisplay(void *parameter)
           last_hour = gps.time.hour();
         }
         act_cnt += act_total;
+        running_act_cnt += act_total;
         act_total = 0;
         // Serial.printf("Wifi Status %d : %d\n", WiFi.status(), WL_CONNECTED);
         if (WiFi.status() != WL_CONNECTED)

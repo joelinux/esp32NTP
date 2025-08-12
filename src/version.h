@@ -2,6 +2,6 @@
 #ifndef _VER_H
 #define _VER_H
 
-#define ESP32NTP_VER    "1.0.1.28"
+#define ESP32NTP_VER    "1.0.1.29"
 
 #endif

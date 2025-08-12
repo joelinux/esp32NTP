@@ -15,6 +15,7 @@ extern ESP32Time rtc;
 extern Preferences prefs;
 extern int tzoffset;
 extern int act_cnt;
+extern long running_act_cnt;
 extern bool ppsLock;
 extern bool restartServer;
 extern bool factoryReset;
@@ -237,6 +238,7 @@ void startMgtServer()
 
               json += ",\"ntp\": {";
               json += "\"requestsPerHour\":\"" + String(act_cnt) +"\"";
+              json += ",\"totalrequests\":\"" + String(running_act_cnt) +"\"";
               json += "}"; // close ntp
               json += ",\"display\": {";
               json += "\"main\":" + String( displayStatus() ? "true" : "false");
