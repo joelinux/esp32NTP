@@ -6,13 +6,14 @@ on:
       - 'v*'  # Triggers on tags like v1.0.0, v2.3.1, etc.
 
 jobs:
-  release:
+  # Build 
+  build:
     runs-on: ubuntu-latest
     steps:
       -name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Cache Action. Not sure why
+      - name: Cache Action for pip and platformio install
         uses: actions/cache@v4
         with:
           path: |
@@ -20,7 +21,7 @@ jobs:
             ~/.platformio/.cache
           key: ${{ runner.os }}-pio
 
-      - name: Setup Python. Not sure why
+      - name: Setup Python for PlatformIO
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -31,12 +32,7 @@ jobs:
       - name: Build PlatformIO Project
         run: pio run -e esp32s2 -e esp32-dev-board
         #run: pio run -e esp32s2 -e esp32-dev-board -e esp32-d1-mini -e esp32dev-st7789 -e esp32dev-cyd2-8
-
-      - name: Upload Build Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: firmware-files
-          path: .pio/build/*/*.bin
+        run: cp .pio/build/*/*.bin docs/.
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -48,3 +44,19 @@ jobs:
           body: Automated release for ${{ github.ref_name }} with firmware for esp32 chips
         env:
           GITHUB_TOKEN: ${{ secrets.BUILD_RELEASE }}
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          path: docs
+
+  # Deploy job
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+      needs: build
+      steps:
+        - name: Deploy to GitHub Pages
+          id: deployment
+          uses: actions/deploy-pages@v4
