@@ -30,9 +30,10 @@ jobs:
         run: pip install --upgrade platformio
 
       - name: Build PlatformIO Project
-        run: pio run -e esp32s2 -e esp32-dev-board
-        #run: pio run -e esp32s2 -e esp32-dev-board -e esp32-d1-mini -e esp32dev-st7789 -e esp32dev-cyd2-8
-        run: cp .pio/build/*/*.bin docs/.
+        run: |
+          pio run -e esp32s2 -e esp32-dev-board
+          cp .pio/build/*/*.bin docs/.
+          #pio run -e esp32s2 -e esp32-dev-board -e esp32-d1-mini -e esp32dev-st7789 -e esp32dev-cyd2-8
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
