@@ -1,0 +1,50 @@
+name: PlatformIO CI
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers on tags like v1.0.0, v2.3.1, etc.
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      -name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Cache Action. Not sure why
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+          key: ${{ runner.os }}-pio
+
+      - name: Setup Python. Not sure why
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install PlatformIO Core
+        run: pip install --upgrade platformio
+
+      - name: Build PlatformIO Project
+        run: pio run -e esp32s2 -e esp32-dev-board
+        #run: pio run -e esp32s2 -e esp32-dev-board -e esp32-d1-mini -e esp32dev-st7789 -e esp32dev-cyd2-8
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-files
+          path: .pio/build/*/*.bin
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: .pio/build/*/*.bin
+          draft: false
+          prerelease: false
+          name: Release ${{ github.ref_name }}
+          body: Automated release for ${{ github.ref_name }} with firmware for esp32 chips
+        env:
+          GITHUB_TOKEN: ${{ secrets.BUILD_RELEASE }}

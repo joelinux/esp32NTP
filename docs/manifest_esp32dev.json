@@ -1,0 +1,15 @@
+{
+  "name": "esp32NTP on ESP32-DevBoard",
+  "version": "1.0.29.8",
+  "funding_url": "https://esphome.io/guides/supporters.html",
+  "builds": [
+    {
+      "chipFamily": "ESP32",
+      "parts": [
+        { "path": "https://github.com/joelinux/esp32NTP/releases/download/v1.0.1.29.8/esp32-dev-board_bootloader.bin", "offset": 4096 },
+        { "path": "https://github.com/joelinux/esp32NTP/releases/download/v1.0.1.29.8/esp32-dev-board_partitions.bin", "offset": 32768 },
+        { "path": "https://github.com/joelinux/esp32NTP/releases/download/v1.0.1.29.8/esp32-dev-board_firmware.bin", "offset": 65536 }
+      ]
+    }
+  ]
+}
