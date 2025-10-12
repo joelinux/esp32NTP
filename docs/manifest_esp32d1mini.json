@@ -1,6 +1,6 @@
 {
   "name": "esp32NTP on ESP32-D1-Mini",
-  "version": "VERSION",
+  "version": "__VERSION__",
   "builds": [
     {
       "chipFamily": "ESP32",

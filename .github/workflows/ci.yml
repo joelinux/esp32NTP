@@ -2,8 +2,7 @@ name: Build Release and Pages
 
 # Needed to publish pages
 permissions:
-  contents: read
-  id-token: write
+  contents: write
   pages: write
 
 on:
@@ -23,8 +22,8 @@ jobs:
 
       - name: Update version in HTML files
         run: |
-          sed -i "s/VERSION/${{ github.ref_name }}/g" docs/*
-          sed -i "s/VERSION/${{ github.ref_name }}/g" src/version.h
+          sed -i "s/__VERSION__/${{ github.ref_name }}/g" docs/*
+          sed -i "s/__VERSION__/${{ github.ref_name }}/g" src/version.h
 
       - name: Cache Action for pip and platformio install
         uses: actions/cache@v4
@@ -62,8 +61,6 @@ jobs:
           prerelease: false
           name: Release ${{ github.ref_name }}
           body: Automated release for ${{ github.ref_name }} with firmware for esp32 chips
-        env:
-          GITHUB_TOKEN: ${{ secrets.BUILD_RELEASE }}
 
   # Deploy job
   deploy:
