@@ -44,10 +44,10 @@ jobs:
 
       - name: Build PlatformIO Project
         run: |
-          pio run -e esp32s2 -e esp32-dev-board
+          pio run -e esp32s2 -e esp32-dev-board -e esp32-d1-mini -e esp32dev-st7789 -e esp32dev-cyd2-8
           cp .pio/build/*/*.bin docs/.
           #ls -lR docs > docs/dir.txt
-          #pio run -e esp32s2 -e esp32-dev-board -e esp32-d1-mini -e esp32dev-st7789 -e esp32dev-cyd2-8
+          #pio run -e esp32s2 -e esp32-dev-board
 
       - name: Upload github-pages Artifacts
         uses: actions/upload-pages-artifact@v3
