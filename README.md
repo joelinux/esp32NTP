@@ -3,6 +3,7 @@
 ![ESP32 NTP Home Page](images/homepage.png)
 
 ## Table of Contents
+- [TL;DR](#tl-dr)
 - [Introduction](#introduction)
 - [Usage Guidelines and Liability](#usage-guidelines-and-liability)
 - [Why Do This?](#why-do-this)
@@ -16,6 +17,10 @@
 - [Usage](#usage)
 - [Warnings](#warnings)
 - [License](#license)
+
+## TL;DR
+1. Build one of the [boards](Build.md)
+2. Flash using Chrome browser https://joelinux.github.io/esp32NTP/
 
 ## Introduction
 This project creates an NTP (Network Time Protocol) server using various ESP32 chipsets, with feedback displayed on screens like SSD1306, ST7789, or Cheap Yellow Display.
