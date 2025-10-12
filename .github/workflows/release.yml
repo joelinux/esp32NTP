@@ -1,0 +1,86 @@
+name: Build Release and Pages
+
+# Needed to publish pages
+permissions:
+  contents: read
+  id-token: write
+  pages: write
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers on tags like v1.0.0, v2.3.1, etc.
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  # Build 
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Update version in HTML files
+        run: |
+          sed -i "s/VERSION/${{ github.ref_name }}/g" docs/*
+          sed -i "s/VERSION/${{ github.ref_name }}/g" src/version.h
+
+      - name: Cache Action for pip and platformio install
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+          key: ${{ runner.os }}-pio
+
+      - name: Setup Python for PlatformIO
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install PlatformIO Core
+        run: pip install --upgrade platformio
+
+      - name: Build PlatformIO Project
+        run: |
+          pio run -e esp32s2 -e esp32-dev-board
+          cp .pio/build/*/*.bin docs/.
+          #ls -lR docs > docs/dir.txt
+          #pio run -e esp32s2 -e esp32-dev-board -e esp32-d1-mini -e esp32dev-st7789 -e esp32dev-cyd2-8
+
+      - name: Upload github-pages Artifacts
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: .pio/build/*/*.bin
+          draft: false
+          prerelease: false
+          name: Release ${{ github.ref_name }}
+          body: Automated release for ${{ github.ref_name }} with firmware for esp32 chips
+        env:
+          GITHUB_TOKEN: ${{ secrets.BUILD_RELEASE }}
+
+  # Deploy job
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Download GitHub Pages artifact
+        uses: actions/download-artifact@v4
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

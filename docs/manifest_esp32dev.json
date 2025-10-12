@@ -1,0 +1,14 @@
+{
+  "name": "esp32NTP on ESP32-DevBoard",
+  "version": "VERSION",
+  "builds": [
+    {
+      "chipFamily": "ESP32",
+      "parts": [
+        { "path": "https://joelinux.github.io/esp32NTP/esp32-dev-board_bootloader.bin", "offset": 4096 },
+        { "path": "https://joelinux.github.io/esp32NTP/esp32-dev-board_partitions.bin", "offset": 32768 },
+        { "path": "https://joelinux.github.io/esp32NTP/esp32-dev-board_firmware.bin", "offset": 65536 }
+      ]
+    }
+  ]
+}
