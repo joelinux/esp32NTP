@@ -10,68 +10,261 @@
     <meta name="viewport" content="width=device-width" />
     <meta name="color-scheme" content="dark light" />
     <style>
+      * {
+        box-sizing: border-box;
+      }
+
       body {
         font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI",
           Roboto, Ubuntu, sans-serif;
         padding: 0;
         margin: 0;
-        line-height: 1.4;
+        line-height: 1.6;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
+
       .content {
-        max-width: 600px;
-        margin: 0 auto;
-        padding: 12px;
+        max-width: 700px;
+        margin: 2rem auto;
+        padding: 3rem;
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
       }
+
+      h1 {
+        color: #2d3748;
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+        text-align: center;
+        font-weight: 700;
+      }
+
       h2 {
         margin-top: 2em;
+        color: #4a5568;
       }
+
       h3 {
         margin-top: 1.5em;
+        color: #4a5568;
       }
+
+      .version {
+        text-align: center;
+        color: #718096;
+        font-size: 0.9rem;
+        margin-bottom: 2rem;
+      }
+
+      .browser-notice {
+        background: #fef3c7;
+        border-left: 4px solid #f59e0b;
+        padding: 1rem;
+        margin-bottom: 2rem;
+        border-radius: 8px;
+        color: #92400e;
+        font-weight: 500;
+      }
+
+      .board-selection {
+        margin-bottom: 2rem;
+      }
+
+      .board-selection > p {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #2d3748;
+        margin-bottom: 1rem;
+      }
+
       a {
-        color: #03a9f4;
+        color: #667eea;
+        text-decoration: none;
+        font-weight: 500;
+        transition: color 0.2s;
       }
+
+      a:hover {
+        color: #764ba2;
+        text-decoration: underline;
+      }
+
       .invisible {
         visibility: hidden;
       }
+
       .hidden {
         display: none;
       }
+
       esp-web-install-button[install-unsupported] {
         visibility: inherit;
       }
+
       .content pre {
         max-width: 100%;
         overflow-y: scroll;
       }
+
       .footer {
-        margin-top: 24px;
-        border-top: 1px solid #ccc;
-        padding-top: 24px;
+        margin-top: 3rem;
+        border-top: 2px solid #e2e8f0;
+        padding-top: 2rem;
         text-align: center;
+        color: #718096;
+        font-size: 0.9rem;
       }
+
       .footer .initiative {
         font-style: italic;
         margin-top: 16px;
       }
+
       table {
         border-spacing: 0;
       }
+
       td {
         padding: 8px;
-        border-bottom: 1px solid #ccc;
+        border-bottom: 1px solid #e2e8f0;
       }
+
+      .radios {
+        padding: 0;
+        margin: 0;
+      }
+
       .radios li {
         list-style: none;
-        line-height: 2em;
+        line-height: 1.5;
+        margin-bottom: 0.75rem;
       }
+
+      .radios label {
+        display: flex;
+        align-items: center;
+        padding: 1rem;
+        background: #f7fafc;
+        border: 2px solid #e2e8f0;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-size: 1rem;
+        color: #2d3748;
+      }
+
+      .radios label:hover {
+        background: #edf2f7;
+        border-color: #cbd5e0;
+        transform: translateX(4px);
+      }
+
+      .radios input[type="radio"] {
+        width: 20px;
+        height: 20px;
+        margin-right: 12px;
+        cursor: pointer;
+        accent-color: #667eea;
+      }
+
+      .radios input[type="radio"]:checked + span {
+        font-weight: 600;
+      }
+
+      .radios label:has(input:checked) {
+        background: #e9d5ff;
+        border-color: #667eea;
+        box-shadow: 0 4px 6px rgba(102, 126, 234, 0.2);
+      }
+
+      .button-row {
+        margin-top: 2rem;
+        text-align: center;
+      }
+
+      esp-web-install-button {
+        transition: all 0.3s ease;
+      }
+
       @media (prefers-color-scheme: dark) {
         body {
-          background-color: #333;
-          color: #fff;
+          background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
         }
+
+        .content {
+          background: #2d3748;
+          color: #e2e8f0;
+        }
+
+        h1 {
+          color: #f7fafc;
+        }
+
+        h2, h3 {
+          color: #cbd5e0;
+        }
+
+        .version {
+          color: #a0aec0;
+        }
+
+        .browser-notice {
+          background: #78350f;
+          border-left-color: #f59e0b;
+          color: #fef3c7;
+        }
+
+        .board-selection > p {
+          color: #e2e8f0;
+        }
+
         a {
-          color: #58a6ff;
+          color: #9f7aea;
+        }
+
+        a:hover {
+          color: #b794f4;
+        }
+
+        .radios label {
+          background: #1a202c;
+          border-color: #4a5568;
+          color: #e2e8f0;
+        }
+
+        .radios label:hover {
+          background: #2d3748;
+          border-color: #718096;
+        }
+
+        .radios label:has(input:checked) {
+          background: #44337a;
+          border-color: #9f7aea;
+        }
+
+        .footer {
+          border-top-color: #4a5568;
+          color: #a0aec0;
+        }
+
+        td {
+          border-bottom-color: #4a5568;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .content {
+          margin: 1rem;
+          padding: 2rem 1.5rem;
+        }
+
+        h1 {
+          font-size: 1.5rem;
         }
       }
     </style>
@@ -79,26 +272,34 @@
   </head>
   <body>
     <div class="content">
-      <h1>esp32NTP Web installer - Current Version __VERSION__</h1>
-      <p>Need Chrome browser</p>
-      <p>Select your board</p>
-      <ul class="radios">
-        <li>
-          <label><input type="radio" name="type" value="esp32dev" />ESP-WROOM-32-DevBoard / SSD1306 display</label>
-        </li>
-        <li>
-          <label><input type="radio" name="type" value="esp32s2" /> ESP32-S2 / SSD1306 display</label>
-        </li>
-        <li>
-          <label><input type="radio" name="type" value="esp32d1mini" /> ESP32-D1-Mini / SSD1306 display</label>
-        </li>
-        <li>
-          <label><input type="radio" name="type" value="esp32cyd" /> ESP32 Cheap Yellow Display</label>
-        </li>
-      </ul>
-      <p class="button-row" align="center">
+      <h1>esp32NTP Web Installer</h1>
+      <div class="version">Current Version __VERSION__</div>
+
+      <div class="browser-notice">
+        Chrome browser required for installation
+      </div>
+
+      <div class="board-selection">
+        <p>Select your board</p>
+        <ul class="radios">
+          <li>
+            <label><input type="radio" name="type" value="esp32dev" /><span>ESP-WROOM-32-DevBoard / SSD1306 display</span></label>
+          </li>
+          <li>
+            <label><input type="radio" name="type" value="esp32s2" /><span>ESP32-S2 / SSD1306 display</span></label>
+          </li>
+          <li>
+            <label><input type="radio" name="type" value="esp32d1mini" /><span>ESP32-D1-Mini / SSD1306 display</span></label>
+          </li>
+          <li>
+            <label><input type="radio" name="type" value="esp32cyd" /><span>ESP32 Cheap Yellow Display</span></label>
+          </li>
+        </ul>
+      </div>
+
+      <div class="button-row">
         <esp-web-install-button class="invisible"></esp-web-install-button>
-      </p>
+      </div>
 
       <div class="footer">
         <a href="https://github.com/joelinux/esp32NTP"
