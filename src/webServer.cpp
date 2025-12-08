@@ -11,6 +11,8 @@ extern String wifi_pass;
 extern String admin_id;
 extern String admin_pw;
 extern String hostname;
+extern String syslogHost;
+extern int syslogPort;
 extern ESP32Time rtc;
 extern Preferences prefs;
 extern int tzoffset;
@@ -94,6 +96,11 @@ const char *html = R"(
 )";
 
 AsyncWebServer server(80);
+
+void delSyslog()
+{
+  prefs.remove(NVSYSLOG_HOST);
+}
 
 void startWebServer()
 {
@@ -204,13 +211,25 @@ void startMgtServer()
                 request->redirect("/");  // Implicitly uses 302 Found
                 Serial.println("Web Client Toggle Boot Display");
                 //toggleDisplay();
-                toggleBootDisplay();
-               });
+                toggleBootDisplay(); });
+  server.on("/api/delSyslog", HTTP_GET, [](AsyncWebServerRequest *request)
+            {
+                if(!request->authenticate(admin_id.c_str(), admin_pw.c_str()))
+                   return request->requestAuthentication();
+                request->redirect("/");  // Implicitly uses 302 Found
+                Serial.println("Web Client Delete Syslog server");
+                if ( syslogHost.length() > 0 )
+                {
+                    delSyslog();
+                    request->send(200, "text/html", "Restarting server...");
+                    prefs.end();
+                    restartServer = true; 
+                    } });
   server.on("/api/reboot", HTTP_GET, [](AsyncWebServerRequest *request)
             {
-    if (!request->authenticate(admin_id.c_str(), admin_pw.c_str()))
-      return request->requestAuthentication(auth_realm);
-    Serial.println("Web Client REBOOT");
+              if (!request->authenticate(admin_id.c_str(), admin_pw.c_str()))
+                return request->requestAuthentication(auth_realm);
+                    Serial.println("Web Client REBOOT");
                     request->send(200, "text/html", "Restarting server...");
                     restartServer = true; });
 
@@ -230,6 +249,7 @@ void startMgtServer()
               char buf[100];
 
               json += "\"hostname\":\"" + hostname +"\"";
+              json += ",\"syslog\":\"" + syslogHost +"\"";
               json += ",\"firmware\":\"" + String(ESP32NTP_VER) +"\"";
               json += ",\"board\":\"" + String(NTP_BOARD_VERSION) +"\"";
               json += ",\"uptime\":\"" + String(secTostr((long)(millis() / 1000), buf)) +"\"";
@@ -332,6 +352,15 @@ void startMgtServer()
     int hostnameEnd = body.indexOf("\"", hostnameStart);
     String newHostname = body.substring(hostnameStart, hostnameEnd);
 
+    int sysloghStart = body.indexOf("\"syslogHost\":\"") + 14;
+    int sysloghEnd = body.indexOf("\"", sysloghStart);
+    String newSyslogHost = body.substring(sysloghStart, sysloghEnd);
+
+    int syslogpStart = body.indexOf("\"syslogPort\":\"") + 14;
+    int syslogpEnd = body.indexOf("\"", syslogpStart);
+    String newSyslogPort = body.substring(syslogpStart, syslogpEnd);
+
+
     // Validate inputs
     if (newAdminId.length() >= 3 && newAdminId.length() <= 32)
     {
@@ -343,6 +372,20 @@ void startMgtServer()
     {
       admin_pw = newAdminPassword;
       prefs.putString(ADMINPW, admin_pw);
+      restartServer = true;
+    }
+    if (newSyslogHost.length() >= 1 && newHostname.length() <= 64)
+    {
+      // Save to preferences
+      prefs.putString(NVSYSLOG_HOST, newSyslogHost);
+      if ( newSyslogPort.length() >= 1 ) 
+      {
+	      prefs.putInt(NVSYSLOG_PORT, newSyslogPort.toInt());
+      }
+      else
+      {
+	      prefs.putInt(NVSYSLOG_PORT, 514);
+      }
       restartServer = true;
     }
     if (newHostname.length() >= 3 && newHostname.length() <= 32)
@@ -364,7 +407,7 @@ void startMgtServer()
     } });
 
   server.on("/api/logout", HTTP_GET, [](AsyncWebServerRequest *request)
-            {  
+            {
               // Send a 401 Unauthorized response to clear credentials
               AsyncWebServerResponse *response = request->beginResponse(401, "text/plain", "Logged out. Please re-authenticate.");
               // Add the WWW-Authenticate header to force re-authentication
@@ -372,7 +415,7 @@ void startMgtServer()
 
               request->send(response);
               // request->send(401, "text/plain", "Logged out. Please re-authenticate.");
-             });
+            });
 
   server.begin();
 }

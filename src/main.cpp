@@ -8,6 +8,16 @@
 #include "main.h"
 #include "webServer.h"
 #include "ntpServer.h"
+// #include "syslogng.h"
+#include "EasySyslog.h"
+
+extern "C"
+{
+  #include "esp_core_dump.h"
+  // #include "esp_task.h"
+  #include "esp_log.h"
+  #include "esp_debug_helpers.h"
+}
 
 extern void startNTPServer();
 
@@ -18,6 +28,8 @@ String ssid = "NTPS1";        // Edit here AP name
 String password = "12345678"; // Edit here AP password
 
 IPAddress softAPIP(192, 168, 5, 1); // Edit here AP website IP
+
+EasySyslog *syslog = nullptr;
 
 // If WIFI_NTP_RESET is define, you can send a packet to NTP server to reset the WiFi credentials
 // This is useful if you want to change the WiFi credentials without having to press reset button
@@ -119,6 +131,8 @@ String wifi_pass = "";
 String admin_id = "admin";
 String admin_pw = "";
 String hostname = "";
+String syslogHost = "";
+int syslogPort = 514;
 
 TaskHandle_t taskHandle1 = NULL; // task handle for setting/refreshing the display
 
@@ -209,6 +223,8 @@ void WiFiSetup()
   admin_id = prefs.getString(ADMINID, "admin");
   admin_pw = prefs.getString(ADMINPW);
   hostname = prefs.getString(HOSTNAME);
+  syslogHost = prefs.getString(NVSYSLOG_HOST);
+  syslogPort = prefs.getInt(NVSYSLOG_PORT);
   String secretKey = prefs.getString(SECRETKEY);
 
   if (admin_pw.isEmpty() && !secretKey.isEmpty())
@@ -286,6 +302,12 @@ void WiFiSetup()
         return;
       }
     }
+    //syslogng_init(syslogHost.c_str(), syslogPort);
+    //syslogng_log("Connected to wifi");
+    syslog = new EasySyslog("esp32NTP", hostname.c_str());
+    syslog->begin(syslogHost.c_str(), syslogPort);
+    syslog->info("Connected to wifi. Startup complete");
+
     Serial.println("Connected to the Wi-Fi network.");
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
@@ -301,6 +323,14 @@ void WiFiSetup()
     {
       Serial.printf("Failed to disable power-saving mode: %d\n", ret);
     }
+    // Force a backtrace print for demonstration
+
+    // syslog.log(LOG_ERR, "=== Backtrace Start ===");
+    // This is the new direct way:
+    // esp_backtrace_print(100);
+    // syslog.log(LOG_ERR, "=== Backtrace END ===");
+    // syslogng_backtrace();
+
     startMgtServer();
   }
 }
@@ -351,9 +381,10 @@ void updateTheDisplay(void *parameter)
       ppsLock = false;
       stratum = 10;
     }
-    else if ( ppsLock) {
+    else if (ppsLock)
+    {
       stratum = 2;
-    } 
+    }
     if (gps.time.isUpdated())
     {
       if ((first_set == 0) && gps.date.isValid() && gps.time.isValid()) // make sure the date and time are valid (in that values are populated)
@@ -381,6 +412,7 @@ void updateTheDisplay(void *parameter)
         {
           act_cnt = 0;
           last_hour = gps.time.hour();
+	  syslog->info("Hour update. Still alive");
         }
         act_cnt += act_total;
         running_act_cnt += act_total;
@@ -570,6 +602,31 @@ void checkOTAPartitionSpace()
 // ****************************************************************************
 //
 // ****************************************************************************
+void syslog_backtrace() {
+    
+    syslog->warning("=== Backtrace Start ===");
+    
+    esp_backtrace_frame_t frame;
+    esp_backtrace_get_start(&frame.pc, &frame.sp, &frame.next_pc);
+    
+    int depth = 0;
+    char buffer[128];
+    
+    while (depth < 20) {
+        snprintf(buffer, sizeof(buffer), "0x%08x:0x%08x", frame.pc, frame.sp);
+        syslog->warning(buffer);
+        if (!esp_backtrace_get_next_frame(&frame)) {
+            break;
+        }
+        depth++;
+    }
+    
+    syslog->warning("=== Backtrace End ===");
+}
+
+// ****************************************************************************
+//
+// ****************************************************************************
 void setup()
 {
   // Create a config namespace to store variables for reboot
@@ -629,6 +686,8 @@ void setup()
     startDisplayTask();
   }
 
+  syslog->info("ESP32 Startup");
+  syslog_backtrace();
   checkOTAPartitionSpace();
 }
 
@@ -690,6 +749,7 @@ void loop()
   if (restartServer)
   {
     vTaskDelay(500);
+    // syslogng_log("restartServer was requested");
     ESP.restart();
   }
 }

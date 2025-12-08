@@ -24,6 +24,8 @@
 #define ADMINPW	"adminpw"
 #define HOSTNAME "hostname"
 #define DISPLAYON "displayon"
+#define NVSYSLOG_HOST "sysloghost"
+#define NVSYSLOG_PORT "syslogport"
 
 extern void startWebServer();
 extern void startMgtServer();

@@ -385,11 +385,18 @@ const char *updatehtml = R"(
                         ON<span class="status-indicator status-online"></span>
                     </span>
                 </div>
+                <div class="info-item">
+                    <span class="info-label">Syslog</span>
+                    <span class="info-value" id="syslog-id"></span>
+                </div>
                 <div class="toggle-container">
                     <button class="btn btn-success" onclick="toggleDisplay() ">Toggle Display</button>
                 </div>
                 <div class="toggle-container">
                     <button class="btn btn-success" onclick="toggleBootDisplay() ">Toggle Boot Display</button>
+                </div>
+                <div class="toggle-container">
+                    <button class="btn btn-success" onclick="delSyslog() ">Delete Syslog Host</button>
                 </div>
             </div>
 
@@ -430,6 +437,14 @@ const char *updatehtml = R"(
                 <div class="form-group">
                     <label class="form-label" for="hostname">Device Hostname:</label>
                     <input type="text" id="hostname" class="form-input" placeholder="Enter device hostname" maxlength="32">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="syslogHost">Syslog IP:</label>
+                    <input type="text" id="syslogHost" class="form-input" placeholder="Enter syslog IP" maxlength="32">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="syslogPort">Syslog port(514):</label>
+                    <input type="text" id="syslogPort" class="form-input" placeholder="Enter syslog Port - Default 514" maxlength="32">
                 </div>
                 <div class="control-buttons">
                     <button class="btn btn-success" onclick="updateAdminSettings() ">💾 Update Settings</button>
@@ -500,6 +515,7 @@ const char *updatehtml = R"(
             document.getElementById('firmware-version').textContent = data.firmware || 'v0';
             document.getElementById('firmware-board').textContent = data.board || 'none';
             document.getElementById('hostname-id').textContent = data.hostname || 'none';
+            document.getElementById('syslog-id').textContent = data.syslog || 'none';
             document.getElementById('free-heap').textContent = data.freeHeap || '0 KB';
             document.getElementById('uptime').textContent = data.uptime || '0s';
             document.getElementById('cpu-temp').textContent = data.temperature || '0°C';
@@ -558,6 +574,19 @@ const char *updatehtml = R"(
                 }
             } catch (error) {
                 console.error('Failed to toggle:', error);
+            }
+        }
+	
+        // Delete syslog host
+        async function delSyslog() {
+            try {
+		const response = await fetch('/api/delSyslog', { method: 'GET' });
+	        alert('System is rebooting if syslog was set');
+                if (response.ok) {
+                    refreshData(); // Refresh to get updated status
+                }
+            } catch (error) {
+                console.error('Failed to delete syslog:', error);
             }
         }
 
@@ -677,8 +706,10 @@ const char *updatehtml = R"(
             const adminId = document.getElementById('admin-id').value.trim();
             const adminPassword = document.getElementById('admin-password').value.trim();
             const hostname = document.getElementById('hostname').value.trim();
+            const syslogHost = document.getElementById('syslogHost').value.trim();
+            const syslogPort = document.getElementById('syslogPort').value.trim();
 
-            if (!adminId && !adminPassword && !hostname) {
+            if (!adminId && !adminPassword && !hostname && !syslogHost) {
                 alert('Please fill in on field');
                 return;
             }
@@ -716,7 +747,9 @@ const char *updatehtml = R"(
                     body: JSON.stringify({
                         adminId: adminId,
                         adminPassword: adminPassword,
-                        hostname: hostname
+                        hostname: hostname,
+                        syslogHost: syslogHost,
+                        syslogPort: syslogPort
                     })
                 });
 

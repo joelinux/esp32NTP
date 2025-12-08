@@ -15,6 +15,7 @@
 #include <mbedtls/md.h> // Include for HMAC-SHA256 (install via Arduino Library Manager)
 #include <Update.h>
 #include <esp_partition.h>
+#include "EasySyslog.h"
 
 
 // The following 3 defines are defined in platformio.ini
