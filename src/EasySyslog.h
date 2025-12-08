@@ -21,14 +21,16 @@ enum SyslogSeverity {
 
 class EasySyslog {
 public:
-  EasySyslog(const char* appName = "ESP32App", const char* hostname = "ESP32");
+  EasySyslog();
   ~EasySyslog();
 
+  void init(const char *appName, const char *hostname);
   bool begin(const char* server, uint16_t port = SYSLOG_PORT);
   bool begin(IPAddress server, uint16_t port = SYSLOG_PORT);
 
   void log(SyslogSeverity severity, const char* format, ...);
   void logf(SyslogSeverity severity, const char* format, ...);  // Same as log
+  void vlog(SyslogSeverity severity, const char* format, va_list args);
 
   // Convenience methods
   void emerg(const char* format, ...);
@@ -48,8 +50,9 @@ private:
   WiFiUDP _udp;
   IPAddress _server;
   uint16_t _port;
-  char _appName[32];
-  char _hostname[32];
+  bool _init;
+  char _appName[64];
+  char _hostname[64];
   bool _echoSerial = true;
 };
 

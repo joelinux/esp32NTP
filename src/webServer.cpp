@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Copyright 2025 Joe Lesko
 
-#include <Update.h>
 #include "webServer.h"
-#include "esp32_home_page.h" // CAUSED THE ESP32 TO CRASH
+
+#include <Update.h>
+
+#include "EasySyslog.h"
+#include "esp32_home_page.h"
 #include "tools.h"
 
 extern String wifi_ssid;
@@ -22,6 +25,7 @@ extern bool ppsLock;
 extern bool restartServer;
 extern bool factoryReset;
 extern int stratum;
+extern EasySyslog syslog;
 
 extern void ResetSSID();
 extern void toggleDisplay();
@@ -29,7 +33,7 @@ extern bool displayStatus();
 extern void toggleBootDisplay();
 extern bool displayBootStatus();
 
-const char *html = R"(
+const char* html = R"(
 <!DOCTYPE HTML>
 <html>
 <head>
@@ -97,325 +101,360 @@ const char *html = R"(
 
 AsyncWebServer server(80);
 
-void delSyslog()
-{
-  prefs.remove(NVSYSLOG_HOST);
+// ****************************************************************************
+//
+// ****************************************************************************
+void delSyslog() { prefs.remove(NVSYSLOG_HOST); }
+
+// ****************************************************************************
+//
+// ****************************************************************************
+void startWebServer() {
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest* request) {
+        request->send(200, "text/html", html);
+        Serial.println("Web Client Request");
+    });
+
+    server.on("/submit", HTTP_POST, [](AsyncWebServerRequest* request) {
+        String fssid = "";
+        String fssid_pw = "";
+        String fadmin_id = "";
+        String fadmin_pw1 = "";
+        String fadmin_pw2 = "";
+        String fhostname = "";
+
+        syslog.alert("Admin data being updated by %s",
+                     request->client()->remoteIP().toString().c_str());
+        Serial.println("Check ssid");
+        if (request->hasParam("fssid", true)) {
+            Serial.println("fssid is true");
+            fssid = request->getParam("fssid", true)->value();
+        }
+        if (request->hasParam("fssid_pw", true)) {
+            fssid_pw = request->getParam("fssid_pw", true)->value();
+        }
+        if (request->hasParam("adminid", true)) {
+            fadmin_id = request->getParam("adminid", true)->value();
+        }
+        if (request->hasParam("adminpw1", true)) {
+            fadmin_pw1 = request->getParam("adminpw1", true)->value();
+        }
+        if (request->hasParam("adminpw2", true)) {
+            fadmin_pw2 = request->getParam("adminpw2", true)->value();
+        }
+        wifi_ssid = fssid;
+        wifi_pass = fssid_pw;
+        if (!fadmin_pw1.isEmpty() && fadmin_pw1 == fadmin_pw2) {
+            admin_pw = fadmin_pw1;
+        } else {
+            request->send(200, "text/plain",
+                          "Passwords didn't match. Restarting...");
+            Serial.println("Admin passwords don't match");
+            restartServer = true;
+            return;
+        }
+        if (request->hasParam("fhostname", true)) {
+            fhostname = request->getParam("fhostname", true)->value();
+        }
+        Serial.print("SSID: ");
+        Serial.println(fssid);
+        /*
+        Serial.print("Password: ");
+        Serial.println(fssid_pw);
+        */
+        request->send(200, "text/plain",
+                      "Data received successfully! Restarting...");
+        prefs.putString(WIFISSID, wifi_ssid);
+        prefs.putString(WIFIPASS, wifi_pass);
+        prefs.putString(ADMINID, fadmin_id);
+        prefs.putString(ADMINPW, fadmin_pw1);
+        if (!fhostname.isEmpty()) {
+            prefs.putString(HOSTNAME, fhostname);
+        }
+
+        prefs.putBool(WIFIRESET, false);
+        vTaskDelay(2000);
+        Serial.println("Restarting..");
+        restartServer = true;
+        // ESP.restart();
+    });
+
+    // Start up Web Server
+    Serial.println("SETUP Web Server Done");
+    server.begin();
+    Serial.println("STARTED Web Server Done");
 }
 
-void startWebServer()
-{
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-            {
-      request->send(200, "text/html", html);
-      Serial.println("Web Client Request"); });
+// ****************************************************************************
+//
+// ****************************************************************************
+const char* auth_realm = "Restricted Area";
 
-  server.on("/submit", HTTP_POST, [](AsyncWebServerRequest *request)
-            {
-              String fssid = "";
-              String fssid_pw = "";
-              String fadmin_id = "";
-              String fadmin_pw1 = "";
-              String fadmin_pw2 = "";
-              String fhostname = "";
+void startMgtServer() {
+    Serial.println("Starting Update Server");
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest* request) {
+        if (!request->authenticate(admin_id.c_str(), admin_pw.c_str())) {
+            syslog.alert("Admin LOGIN ERROR MAIN %s",
+                         request->client()->remoteIP().toString().c_str());
+            return request->requestAuthentication(auth_realm);
+        }
+        request->send(200, "text/html", updatehtml);
+        syslog.info("Web Client Request Main - %s",
+                    request->client()->remoteIP().toString().c_str());
+        Serial.println("Web Client Request Main");
+    });
+    server.on("/api/toggle", HTTP_GET, [](AsyncWebServerRequest* request) {
+        if (!request->authenticate(admin_id.c_str(), admin_pw.c_str())) {
+            syslog.alert("Admin LOGIN ERROR toggle %s",
+                         request->client()->remoteIP().toString().c_str());
+            return request->requestAuthentication();
+        }
+        request->redirect("/");  // Implicitly uses 302 Found
+        syslog.info("Web Client Toggle Display - %s",
+                    request->client()->remoteIP().toString().c_str());
+        Serial.println("Web Client Toggle Display");
+        toggleDisplay();
+    });
+    server.on("/api/toggleBoot", HTTP_GET, [](AsyncWebServerRequest* request) {
+        if (!request->authenticate(admin_id.c_str(), admin_pw.c_str())) {
+            syslog.alert("Admin LOGIN ERROR toggleBoot %s",
+                         request->client()->remoteIP().toString().c_str());
+            return request->requestAuthentication();
+        }
+        request->redirect("/");  // Implicitly uses 302 Found
+        syslog.info("Web Client Toggle Boot Display");
+        Serial.println("Web Client Toggle Boot Display");
+        // toggleDisplay();
+        toggleBootDisplay();
+    });
+    server.on("/api/delSyslog", HTTP_GET, [](AsyncWebServerRequest* request) {
+        if (!request->authenticate(admin_id.c_str(), admin_pw.c_str())) {
+            syslog.alert("Admin LOGIN ERROR delSysLog %s",
+                         request->client()->remoteIP().toString().c_str());
+            return request->requestAuthentication();
+        }
+        request->redirect("/");  // Implicitly uses 302 Found
+        syslog.alert("ADMIN Delete Syslog Server %s",
+                     request->client()->remoteIP().toString().c_str());
+        Serial.println("Web Client Delete Syslog server");
+        if (syslogHost.length() > 0) {
+            delSyslog();
+            request->send(200, "text/html", "Restarting server...");
+            prefs.end();
+            restartServer = true;
+        }
+    });
+    server.on("/api/reboot", HTTP_GET, [](AsyncWebServerRequest* request) {
+        if (!request->authenticate(admin_id.c_str(), admin_pw.c_str())) {
+            syslog.alert("Admin LOGIN ERROR REBOOT %s",
+                         request->client()->remoteIP().toString().c_str());
+            return request->requestAuthentication(auth_realm);
+        }
+        syslog.warning("Web Client REBOOT %s", request->client()->remoteIP().toString().c_str());
+        Serial.println("Web Client REBOOT");
+        request->send(200, "text/html", "Restarting server...");
+        restartServer = true;
+    });
 
-              Serial.println("Check ssid");
-              if (request->hasParam("fssid", true))
-              {
-                Serial.println("fssid is true");
-                fssid = request->getParam("fssid", true)->value();
-              }
-              if (request->hasParam("fssid_pw", true))
-              {
-                fssid_pw = request->getParam("fssid_pw", true)->value();
-              }
-              if (request->hasParam("adminid", true))
-              {
-                fadmin_id = request->getParam("adminid", true)->value();
-              }
-              if (request->hasParam("adminpw1", true))
-              {
-                fadmin_pw1 = request->getParam("adminpw1", true)->value();
-              }
-              if (request->hasParam("adminpw2", true))
-              {
-                fadmin_pw2 = request->getParam("adminpw2", true)->value();
-              }
-              wifi_ssid = fssid;
-              wifi_pass = fssid_pw;
-              if (!fadmin_pw1.isEmpty() && fadmin_pw1 == fadmin_pw2)
-              {
-                admin_pw = fadmin_pw1;
-              }
-              else
-              {
-                request->send(200, "text/plain", "Passwords didn't match. Restarting...");
-                Serial.println("Admin passwords don't match");
-                restartServer = true;
+    server.on("/api/reset", HTTP_GET, [](AsyncWebServerRequest* request) {
+        if (!request->authenticate(admin_id.c_str(), admin_pw.c_str())) {
+            syslog.alert("Admin LOGIN ERROR RESET %s",
+                         request->client()->remoteIP().toString().c_str());
+            return request->requestAuthentication(auth_realm);
+        }
+        request->send(200, "text/html", "Restarting server...");
+        syslog.alert("Web Client RESET %s", request->client()->remoteIP().toString().c_str());
+        Serial.println("Web Client RESET");
+        factoryReset = true;
+    });
+
+    server.on("/api/status", HTTP_GET, [](AsyncWebServerRequest* request) {
+        String json = "{";
+        struct tm* tt;
+        time_t now_Local_Time;
+        char buf[100];
+
+        json += "\"hostname\":\"" + hostname + "\"";
+        json += ",\"syslog\":\"" + syslogHost + "\"";
+        json += ",\"firmware\":\"" + String(ESP32NTP_VER) + "\"";
+        json += ",\"board\":\"" + String(NTP_BOARD_VERSION) + "\"";
+        json += ",\"uptime\":\"" +
+                String(secTostr((long)(millis() / 1000), buf)) + "\"";
+        json += ",\"freeHeap\":\"" + String(ESP.getFreeHeap()) + "\"";
+        json += ",\"temperature\":\"" + String(temperatureRead(), 1) + "°C\"";
+
+        json += ",\"ntp\": {";
+        json += "\"requestsPerHour\":\"" + String(act_cnt) + "\"";
+        json += ",\"totalrequests\":\"" + String(running_act_cnt) + "\"";
+        json += "}";  // close ntp
+        json += ",\"display\": {";
+        json += "\"main\":" + String(displayStatus() ? "true" : "false");
+        json += ",\"boot\":" + String(displayBootStatus() ? "true" : "false");
+        json += "}";  // close display
+
+        json += ",\"gps\": {";
+        json += "\"lockStatus\":\"" + String(ppsLock ? "3D Fix" : "No") + "\"";
+        json += ",\"hasLock\":" + String(ppsLock ? "true" : "false");
+        json +=
+            ",\"satellitesInView\":\"" + String(gps.satellites.value()) + "\"";
+        json += ",\"stratum\":\"" + String(stratum) + "\"";
+        json += ",\"datetime\":\"";
+        now_Local_Time = rtc.getEpoch() + tzoffset;
+        tt = gmtime(&now_Local_Time);
+        sprintf(buf, "%04d-%02d-%02d ", tt->tm_year + 1900, tt->tm_mon + 1,
+                tt->tm_mday);
+        json += buf;
+        sprintf(buf, "%02d:%02d:%02d\"", tt->tm_hour, tt->tm_min, tt->tm_sec);
+        json += buf;
+        json += "}";  // close gps
+
+        json += "}";
+        request->send(200, "application/json", json);
+        syslog.debug("Web Client Request status %s",
+                     request->client()->remoteIP().toString().c_str());
+        Serial.println("Web Client Request status");
+        json = String();
+    });
+    server.on(
+        "/api/firmware", HTTP_POST,
+        [](AsyncWebServerRequest* request) {
+            if (!request->authenticate(admin_id.c_str(), admin_pw.c_str())) {
+                syslog.alert("Admin LOGIN ERROR FIRMWARE %s",
+                             request->client()->remoteIP().toString().c_str());
+                return request->requestAuthentication(auth_realm);
+            }
+            request->send(200, "text/html", "Fireware updating. Restarting");
+            syslog.warning("Web Client Firmware %s",
+                           request->client()->remoteIP().toString().c_str());
+            Serial.println("Web Client Firmware");
+            // restartTimer.once_ms(1000,[]{ ESP.restart(); });
+        },
+        [](AsyncWebServerRequest* request, String filename, size_t index,
+           uint8_t* data, size_t len, bool final) {
+            if (!request->authenticate(admin_id.c_str(), admin_pw.c_str())) {
                 return;
-              }
-              if (request->hasParam("fhostname", true))
-              {
-                fhostname = request->getParam("fhostname", true)->value();
-              }
-              Serial.print("SSID: ");
-              Serial.println(fssid);
-              /*
-              Serial.print("Password: ");
-              Serial.println(fssid_pw);
-              */
-              request->send(200, "text/plain", "Data received successfully! Restarting...");
-              prefs.putString(WIFISSID, wifi_ssid);
-              prefs.putString(WIFIPASS, wifi_pass);
-              prefs.putString(ADMINID, fadmin_id);
-              prefs.putString(ADMINPW, fadmin_pw1);
-              if (!fhostname.isEmpty())
-              {
-                prefs.putString(HOSTNAME, fhostname);
-              }
-
-              prefs.putBool(WIFIRESET, false);
-              vTaskDelay(2000);
-              Serial.println("Restarting..");
-              restartServer = true;
-              // ESP.restart();
-            });
-
-  // Start up Web Server
-  Serial.println("SETUP Web Server Done");
-  server.begin();
-  Serial.println("STARTED Web Server Done");
-}
-
-const char *auth_realm = "Restricted Area";
-void startMgtServer()
-{
-
-  Serial.println("Starting Update Server");
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-            {
-                if(!request->authenticate(admin_id.c_str(), admin_pw.c_str()))
-                   return request->requestAuthentication(auth_realm);
-                request->send(200, "text/html", updatehtml );
-                Serial.println("Web Client Request Main"); });
-  server.on("/api/toggle", HTTP_GET, [](AsyncWebServerRequest *request)
-            {
-                if(!request->authenticate(admin_id.c_str(), admin_pw.c_str()))
-                   return request->requestAuthentication();
-                request->redirect("/");  // Implicitly uses 302 Found
-                Serial.println("Web Client Toggle Display");
-                toggleDisplay(); });
-  server.on("/api/toggleBoot", HTTP_GET, [](AsyncWebServerRequest *request)
-            {
-                if(!request->authenticate(admin_id.c_str(), admin_pw.c_str()))
-                   return request->requestAuthentication();
-                request->redirect("/");  // Implicitly uses 302 Found
-                Serial.println("Web Client Toggle Boot Display");
-                //toggleDisplay();
-                toggleBootDisplay(); });
-  server.on("/api/delSyslog", HTTP_GET, [](AsyncWebServerRequest *request)
-            {
-                if(!request->authenticate(admin_id.c_str(), admin_pw.c_str()))
-                   return request->requestAuthentication();
-                request->redirect("/");  // Implicitly uses 302 Found
-                Serial.println("Web Client Delete Syslog server");
-                if ( syslogHost.length() > 0 )
-                {
-                    delSyslog();
-                    request->send(200, "text/html", "Restarting server...");
-                    prefs.end();
-                    restartServer = true; 
-                    } });
-  server.on("/api/reboot", HTTP_GET, [](AsyncWebServerRequest *request)
-            {
-              if (!request->authenticate(admin_id.c_str(), admin_pw.c_str()))
-                return request->requestAuthentication(auth_realm);
-                    Serial.println("Web Client REBOOT");
-                    request->send(200, "text/html", "Restarting server...");
-                    restartServer = true; });
-
-  server.on("/api/reset", HTTP_GET, [](AsyncWebServerRequest *request)
-            {
-                if(!request->authenticate(admin_id.c_str(), admin_pw.c_str()))
-                   return request->requestAuthentication(auth_realm);
-                request->send(200, "text/html", "Restarting server...");
-                Serial.println("Web Client RESET");
-               factoryReset = true; });
-
-  server.on("/api/status", HTTP_GET, [](AsyncWebServerRequest *request)
-            { 
-              String json = "{";
-              struct tm *tt;
-              time_t now_Local_Time;
-              char buf[100];
-
-              json += "\"hostname\":\"" + hostname +"\"";
-              json += ",\"syslog\":\"" + syslogHost +"\"";
-              json += ",\"firmware\":\"" + String(ESP32NTP_VER) +"\"";
-              json += ",\"board\":\"" + String(NTP_BOARD_VERSION) +"\"";
-              json += ",\"uptime\":\"" + String(secTostr((long)(millis() / 1000), buf)) +"\"";
-              json += ",\"freeHeap\":\"" + String(ESP.getFreeHeap()) +"\"";
-              json += ",\"temperature\":\"" + String(temperatureRead(),1) +"°C\"";
-
-              json += ",\"ntp\": {";
-              json += "\"requestsPerHour\":\"" + String(act_cnt) +"\"";
-              json += ",\"totalrequests\":\"" + String(running_act_cnt) +"\"";
-              json += "}"; // close ntp
-              json += ",\"display\": {";
-              json += "\"main\":" + String( displayStatus() ? "true" : "false");
-              json += ",\"boot\":" + String( displayBootStatus() ? "true" : "false");
-              json += "}"; // close display
-
-              json += ",\"gps\": {";
-              json += "\"lockStatus\":\"" + String(ppsLock ? "3D Fix" : "No") +"\"";
-              json += ",\"hasLock\":" + String(ppsLock ? "true" : "false");
-              json += ",\"satellitesInView\":\"" + String(gps.satellites.value()) +"\"";
-              json += ",\"stratum\":\"" + String(stratum) +"\"";
-              json += ",\"datetime\":\"";
-              now_Local_Time = rtc.getEpoch() + tzoffset;
-              tt = gmtime(&now_Local_Time);
-              sprintf(buf, "%04d-%02d-%02d ", tt->tm_year + 1900, tt->tm_mon + 1, tt->tm_mday);
-              json += buf;
-              sprintf(buf, "%02d:%02d:%02d\"", tt->tm_hour, tt->tm_min, tt->tm_sec);
-              json += buf;
-              json += "}"; // close gps
-
-              json += "}";
-              request->send(200, "application/json", json);
-                Serial.println("Web Client Request status");
-              json=String(); });
-  server.on("/api/firmware", HTTP_POST, [](AsyncWebServerRequest *request)
-            {
-              if (!request->authenticate(admin_id.c_str(), admin_pw.c_str()))
-              {
-                return request->requestAuthentication(auth_realm);
-              }
-              request->send(200, "text/html", "Fireware updating. Restarting");
-              Serial.println("Web Client Request");
-              // restartTimer.once_ms(1000,[]{ ESP.restart(); });
-            },
-            [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final)
-            {
-      if (!request->authenticate(admin_id.c_str(), admin_pw.c_str()))
-      {
-        return;
-      }
-      if (!index)
-      {
-        Serial.printf("Update: %s\n", filename.c_str());
-        if (!Update.begin())
+            }
+            if (!index) {
+                syslog.alert("Update: %s - %s\n",request->client()->remoteIP().toString().c_str(),
+			filename.c_str());
+                Serial.printf("Update: %s\n", filename.c_str());
+                if (!Update.begin()) {
+                    Update.printError(Serial);
+                }
+            }
+            if (len) {
+                if (Update.write(data, len) != len) {
+                    Update.printError(Serial);
+                }
+            }
+            if (final) {
+                if (Update.end(true)) {
+                    syslog.alert("Update Success: %u bytes\n", index + len);
+                    syslog.alert("Reboot Server");
+                    Serial.printf("Update Success: %u bytes\n", index + len);
+                    Serial.println("Reboot Server");
+                    restartServer = true;
+                }
+            }
+        /*
+        else
         {
           Update.printError(Serial);
         }
-      }
-      if (len)
-      {
-        if (Update.write(data, len) != len)
-        {
-          Update.printError(Serial);
-        }
-      }
-      if (final)
-      {
-        if (Update.end(true))
-        {
-          Serial.printf("Update Success: %u bytes\n", index + len);
-          Serial.println("Reboot Server");
-          restartServer = true;
-        }
-      }
-      /*
-      else
-      {
-        Update.printError(Serial);
-      }
-        */ });
-  server.on("/api/admin-config", HTTP_POST, [](AsyncWebServerRequest *request) {}, NULL, [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total)
-            {
-    if (!request->authenticate(admin_id.c_str(), admin_pw.c_str()))
-    {
-      return request->requestAuthentication(auth_realm);
-    }
+          */
+        });
+    server.on(
+        "/api/admin-config", HTTP_POST, [](AsyncWebServerRequest* request) {},
+        NULL,
+        [](AsyncWebServerRequest* request, uint8_t* data, size_t len,
+           size_t index, size_t total) {
+            if (!request->authenticate(admin_id.c_str(), admin_pw.c_str())) {
+                syslog.alert("Admin LOGIN ERROR ADMIN %s",
+                             request->client()->remoteIP().toString().c_str());
+                return request->requestAuthentication(auth_realm);
+            }
 
-    String body = String((char *)data).substring(0, len);
-    Serial.println("Admin config update: " + body);
+            String body = String((char*)data).substring(0, len);
+            syslog.alert("Admin config update: %s", request->client()->remoteIP().toString().c_str());
+            Serial.println("Admin config update: " + body);
 
-    // Parse JSON manually (simple approach)
-    int adminIdStart = body.indexOf("\"adminId\":\"") + 11;
-    int adminIdEnd = body.indexOf("\"", adminIdStart);
-    String newAdminId = body.substring(adminIdStart, adminIdEnd);
+            // Parse JSON manually (simple approach)
+            int adminIdStart = body.indexOf("\"adminId\":\"") + 11;
+            int adminIdEnd = body.indexOf("\"", adminIdStart);
+            String newAdminId = body.substring(adminIdStart, adminIdEnd);
 
-    int adminPasswordStart = body.indexOf("\"adminPassword\":\"") + 17;
-    int adminPasswordEnd = body.indexOf("\"", adminPasswordStart);
-    String newAdminPassword = body.substring(adminPasswordStart, adminPasswordEnd);
+            int adminPasswordStart = body.indexOf("\"adminPassword\":\"") + 17;
+            int adminPasswordEnd = body.indexOf("\"", adminPasswordStart);
+            String newAdminPassword =
+                body.substring(adminPasswordStart, adminPasswordEnd);
 
-    int hostnameStart = body.indexOf("\"hostname\":\"") + 12;
-    int hostnameEnd = body.indexOf("\"", hostnameStart);
-    String newHostname = body.substring(hostnameStart, hostnameEnd);
+            int hostnameStart = body.indexOf("\"hostname\":\"") + 12;
+            int hostnameEnd = body.indexOf("\"", hostnameStart);
+            String newHostname = body.substring(hostnameStart, hostnameEnd);
 
-    int sysloghStart = body.indexOf("\"syslogHost\":\"") + 14;
-    int sysloghEnd = body.indexOf("\"", sysloghStart);
-    String newSyslogHost = body.substring(sysloghStart, sysloghEnd);
+            int sysloghStart = body.indexOf("\"syslogHost\":\"") + 14;
+            int sysloghEnd = body.indexOf("\"", sysloghStart);
+            String newSyslogHost = body.substring(sysloghStart, sysloghEnd);
 
-    int syslogpStart = body.indexOf("\"syslogPort\":\"") + 14;
-    int syslogpEnd = body.indexOf("\"", syslogpStart);
-    String newSyslogPort = body.substring(syslogpStart, syslogpEnd);
+            int syslogpStart = body.indexOf("\"syslogPort\":\"") + 14;
+            int syslogpEnd = body.indexOf("\"", syslogpStart);
+            String newSyslogPort = body.substring(syslogpStart, syslogpEnd);
 
+            // Validate inputs
+            if (newAdminId.length() >= 3 && newAdminId.length() <= 32) {
+                admin_id = newAdminId;
+                prefs.putString(ADMINID, admin_id);
+                restartServer = true;
+            }
+            if (newAdminPassword.length() >= 6 &&
+                newAdminPassword.length() <= 64) {
+                admin_pw = newAdminPassword;
+                prefs.putString(ADMINPW, admin_pw);
+                restartServer = true;
+            }
+            if (newSyslogHost.length() >= 1 && newHostname.length() <= 64) {
+                // Save to preferences
+                prefs.putString(NVSYSLOG_HOST, newSyslogHost);
+                if (newSyslogPort.length() >= 1) {
+                    prefs.putInt(NVSYSLOG_PORT, newSyslogPort.toInt());
+                } else {
+                    prefs.putInt(NVSYSLOG_PORT, 514);
+                }
+                restartServer = true;
+            }
+            if (newHostname.length() >= 3 && newHostname.length() <= 32) {
+                // Update global variables
+                hostname = newHostname;
 
-    // Validate inputs
-    if (newAdminId.length() >= 3 && newAdminId.length() <= 32)
-    {
-      admin_id = newAdminId;
-      prefs.putString(ADMINID, admin_id);
-      restartServer = true;
-    }
-    if (newAdminPassword.length() >= 6 && newAdminPassword.length() <= 64)
-    {
-      admin_pw = newAdminPassword;
-      prefs.putString(ADMINPW, admin_pw);
-      restartServer = true;
-    }
-    if (newSyslogHost.length() >= 1 && newHostname.length() <= 64)
-    {
-      // Save to preferences
-      prefs.putString(NVSYSLOG_HOST, newSyslogHost);
-      if ( newSyslogPort.length() >= 1 ) 
-      {
-	      prefs.putInt(NVSYSLOG_PORT, newSyslogPort.toInt());
-      }
-      else
-      {
-	      prefs.putInt(NVSYSLOG_PORT, 514);
-      }
-      restartServer = true;
-    }
-    if (newHostname.length() >= 3 && newHostname.length() <= 32)
-    {
-      // Update global variables
-      hostname = newHostname;
+                // Save to preferences
+                prefs.putString(HOSTNAME, hostname);
+                restartServer = true;
+            }
 
-      // Save to preferences
-      prefs.putString(HOSTNAME, hostname);
-      restartServer = true;
-    }
+            if (restartServer) {
+                prefs.end();
+                request->send(200, "application/json",
+                              "{\"status\":\"success\"}");
+                Serial.println("Admin settings updated successfully");
+            } else {
+                request->send(400, "application/json",
+                              "{\"status\":\"error\",\"message\":\"Invalid "
+                              "input parameters\"}");
+            }
+        });
 
-    if ( restartServer ) {
-      prefs.end();
-      request->send(200, "application/json", "{\"status\":\"success\"}");
-      Serial.println("Admin settings updated successfully");
-    } else {
-      request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid input parameters\"}");
-    } });
+    server.on("/api/logout", HTTP_GET, [](AsyncWebServerRequest* request) {
+        // Send a 401 Unauthorized response to clear credentials
+        AsyncWebServerResponse* response = request->beginResponse(
+            401, "text/plain", "Logged out. Please re-authenticate.");
+        // Add the WWW-Authenticate header to force re-authentication
+        response->addHeader("WWW-Authenticate",
+                            "digest realm=\"Restricted Area\", qop=\"auth\"");
 
-  server.on("/api/logout", HTTP_GET, [](AsyncWebServerRequest *request)
-            {
-              // Send a 401 Unauthorized response to clear credentials
-              AsyncWebServerResponse *response = request->beginResponse(401, "text/plain", "Logged out. Please re-authenticate.");
-              // Add the WWW-Authenticate header to force re-authentication
-              response->addHeader("WWW-Authenticate", "digest realm=\"Restricted Area\", qop=\"auth\"");
+        request->send(response);
+        // request->send(401, "text/plain", "Logged out. Please
+        // re-authenticate.");
+    });
 
-              request->send(response);
-              // request->send(401, "text/plain", "Logged out. Please re-authenticate.");
-            });
-
-  server.begin();
+    server.begin();
 }

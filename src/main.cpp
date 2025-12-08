@@ -8,7 +8,6 @@
 #include "main.h"
 #include "webServer.h"
 #include "ntpServer.h"
-// #include "syslogng.h"
 #include "EasySyslog.h"
 
 extern "C"
@@ -29,7 +28,7 @@ String password = "12345678"; // Edit here AP password
 
 IPAddress softAPIP(192, 168, 5, 1); // Edit here AP website IP
 
-EasySyslog *syslog = nullptr;
+EasySyslog syslog;
 
 // If WIFI_NTP_RESET is define, you can send a packet to NTP server to reset the WiFi credentials
 // This is useful if you want to change the WiFi credentials without having to press reset button
@@ -215,17 +214,20 @@ void WiFiSetup()
 {
   static bool ran_once = false;
   static int ix = 0;
+  String secretKey;
 
-  Serial.println("Starting WiFiSetup..");
-  Reset = prefs.getBool(WIFIRESET, true);
-  wifi_ssid = prefs.getString(WIFISSID, ssid);
-  wifi_pass = prefs.getString(WIFIPASS, password);
-  admin_id = prefs.getString(ADMINID, "admin");
-  admin_pw = prefs.getString(ADMINPW);
-  hostname = prefs.getString(HOSTNAME);
-  syslogHost = prefs.getString(NVSYSLOG_HOST);
-  syslogPort = prefs.getInt(NVSYSLOG_PORT);
-  String secretKey = prefs.getString(SECRETKEY);
+  if ( ! ran_once ) {
+	  Serial.println("Starting WiFiSetup..");
+	  Reset = prefs.getBool(WIFIRESET, true);
+	  wifi_ssid = prefs.getString(WIFISSID, ssid);
+	  wifi_pass = prefs.getString(WIFIPASS, password);
+	  admin_id = prefs.getString(ADMINID, "admin");
+	  admin_pw = prefs.getString(ADMINPW);
+	  hostname = prefs.getString(HOSTNAME);
+	  syslogHost = prefs.getString(NVSYSLOG_HOST);
+	  syslogPort = prefs.getInt(NVSYSLOG_PORT);
+	  secretKey = prefs.getString(SECRETKEY);
+  }
 
   if (admin_pw.isEmpty() && !secretKey.isEmpty())
   {
@@ -302,12 +304,12 @@ void WiFiSetup()
         return;
       }
     }
-    //syslogng_init(syslogHost.c_str(), syslogPort);
-    //syslogng_log("Connected to wifi");
-    syslog = new EasySyslog("esp32NTP", hostname.c_str());
-    syslog->begin(syslogHost.c_str(), syslogPort);
-    syslog->info("Connected to wifi. Startup complete");
+    syslog.init("esp32NTP", hostname.c_str());
+    syslog.begin(syslogHost.c_str(), syslogPort);
+    syslog.info("Connected to wifi. Startup complete");
 
+    Serial.print("Syslog IP ");
+    Serial.println(syslogHost.c_str());
     Serial.println("Connected to the Wi-Fi network.");
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
@@ -412,7 +414,7 @@ void updateTheDisplay(void *parameter)
         {
           act_cnt = 0;
           last_hour = gps.time.hour();
-	  syslog->info("Hour update. Still alive");
+	  syslog.info("Hour update. Still alive");
         }
         act_cnt += act_total;
         running_act_cnt += act_total;
@@ -604,7 +606,7 @@ void checkOTAPartitionSpace()
 // ****************************************************************************
 void syslog_backtrace() {
     
-    syslog->warning("=== Backtrace Start ===");
+    syslog.warning("=== Backtrace Start ===");
     
     esp_backtrace_frame_t frame;
     esp_backtrace_get_start(&frame.pc, &frame.sp, &frame.next_pc);
@@ -614,14 +616,14 @@ void syslog_backtrace() {
     
     while (depth < 20) {
         snprintf(buffer, sizeof(buffer), "0x%08x:0x%08x", frame.pc, frame.sp);
-        syslog->warning(buffer);
+        syslog.warning(buffer);
         if (!esp_backtrace_get_next_frame(&frame)) {
             break;
         }
         depth++;
     }
     
-    syslog->warning("=== Backtrace End ===");
+    syslog.warning("=== Backtrace End ===");
 }
 
 // ****************************************************************************
@@ -686,7 +688,7 @@ void setup()
     startDisplayTask();
   }
 
-  syslog->info("ESP32 Startup");
+  syslog.info("ESP32 Startup");
   syslog_backtrace();
   checkOTAPartitionSpace();
 }
@@ -707,6 +709,7 @@ void loop()
 
   if (factoryReset)
   {
+    syslog.warning("Reset Pressed!");
     Serial.println("Reset Pressed!");
     vTaskDelay(500);
     display->clear();
@@ -735,6 +738,7 @@ void loop()
     display->println("Wiring");
     display->display();
     Serial.println(F("WARNING: No GPS data.  Check wiring."));
+    syslog.crit("WARNING: No GPS data.  Check wiring.");
     vTaskDelay(5000);
   }
   processNTPRequests();
@@ -749,7 +753,7 @@ void loop()
   if (restartServer)
   {
     vTaskDelay(500);
-    // syslogng_log("restartServer was requested");
+    syslog.warning("restartServer was requested");
     ESP.restart();
   }
 }
