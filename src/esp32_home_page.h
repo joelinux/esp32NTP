@@ -486,7 +486,7 @@ const char *updatehtml = R"(
 
         // Start auto-refresh
         function startAutoRefresh() {
-            refreshInterval = setInterval(refreshData, 10000); // Refresh every 10 seconds
+            refreshInterval = setInterval(refreshData, 30000); // Refresh every 30 seconds
         }
 
         // Stop auto-refresh

@@ -325,13 +325,6 @@ void WiFiSetup()
     {
       Serial.printf("Failed to disable power-saving mode: %d\n", ret);
     }
-    // Force a backtrace print for demonstration
-
-    // syslog.log(LOG_ERR, "=== Backtrace Start ===");
-    // This is the new direct way:
-    // esp_backtrace_print(100);
-    // syslog.log(LOG_ERR, "=== Backtrace END ===");
-    // syslogng_backtrace();
 
     startMgtServer();
   }
@@ -690,6 +683,8 @@ void setup()
 
   syslog.info("ESP32 Startup");
   syslog_backtrace();
+  syslog.info("ESP32 Board Build: %s", NTP_BOARD_VERSION);
+  syslog.info("Firmware version: %s", ESP32NTP_VER);
   checkOTAPartitionSpace();
 }
 
