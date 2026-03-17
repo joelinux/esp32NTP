@@ -191,14 +191,24 @@ void sendNTPpacket(IPAddress remoteIP, int remotePort) {
 
     // Initialize values needed to form NTP request
 
+#ifdef _NTP4_
     // LI: 0, Version: 4, Mode: 4 (server)
-    // packetBuffer[0] = 0b00100100;
+    packetBuffer[0] = 0b00100100;
+#else
     // LI: 0, Version: 3, Mode: 4 (server)
-    packetBuffer[0] = 0b00011100;
+    // packetBuffer[0] = 0b00011100;
+#endif
 
     if (timeisPPS) {
+	// This is setting Stratum to level 2
+	// If not 0 or 1, the namestring will be interpreted as
+	// an ip.
         // Stratum, or type of clock
+#if _NTP_STRATUM == 1
+        packetBuffer[1] = 0b00000001;
+#else
         packetBuffer[1] = 0b00000010;
+#endif
     } else {
         // Stratum, or type of clock
         packetBuffer[1] = 0b00001010;
@@ -229,11 +239,19 @@ void sendNTPpacket(IPAddress remoteIP, int remotePort) {
     packetBuffer[10] = 0;
     packetBuffer[11] = 0x50;
 
+#if _NTP_STRATUM == 1
     // time source (namestring)
     packetBuffer[12] = 71;  // G
     packetBuffer[13] = 80;  // P
     packetBuffer[14] = 83;  // S
     packetBuffer[15] = 0;
+#else
+    // time source (namestring)
+    packetBuffer[12] = 127;  // 127.0.0.1
+    packetBuffer[13] = 0;
+    packetBuffer[14] = 0;
+    packetBuffer[15] = 1;
+#endif
 
     // get the current time and write it out as the reference time to bytes 16
     // to 23 of the response packet

@@ -4,6 +4,11 @@
 #ifndef _NTPSERVER_H
 #define _NTPSERVER_H
 
+// Set NTP 4. If undefine, NTP version 3 will be set
+#define _NTP4_
+// What stratum should be report as when GPS is acquired. 1 or 2
+#define _NTP_STRATUM    2
+
 #include <WiFi.h>
 #include <TinyGPSPlus.h>
 #include <ESP32Time.h>
